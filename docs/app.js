@@ -373,13 +373,31 @@ function renderChart() {
   const scaleFactor = simulatedCapital / baseStartCap;
 
   if (currentTab === "equity") {
-    // --- TAB 1: EQUITY VS BENCHMARKS ---
-    const equityData = plotRecords.map(r => r.total_value * scaleFactor);
-    const baseLine = plotRecords.map(() => simulatedCapital);
+    // --- TAB 1: EQUITY VS BENCHMARKS (REBASED TO TIMEFRAME START) ---
+    const r0 = plotRecords[0];
+    const rEnd = plotRecords[plotRecords.length - 1];
 
-    // Normalized Benchmarks based on simulated capital
-    const ndxNorm = plotRecords.map(r => simulatedCapital * (1 + (r.ndx_buyhold_pnl_pct || 0) / 100));
-    const tqqqNorm = plotRecords.map(r => simulatedCapital * (1 + (r.tqqq_buyhold_pnl_pct || 0) / 100));
+    const stratStartVal = Math.max(0.0001, r0.total_value);
+    const ndxStartRatio = Math.max(0.0001, 1 + (r0.ndx_buyhold_pnl_pct || 0) / 100);
+    const tqqqStartRatio = Math.max(0.0001, 1 + (r0.tqqq_buyhold_pnl_pct || 0) / 100);
+
+    // Rebased to simulatedCapital at the start of this specific timeframe
+    const equityData = plotRecords.map(r => simulatedCapital * (r.total_value / stratStartVal));
+    const baseLine = plotRecords.map(() => simulatedCapital);
+    const ndxNorm = plotRecords.map(r => simulatedCapital * ((1 + (r.ndx_buyhold_pnl_pct || 0) / 100) / ndxStartRatio));
+    const tqqqNorm = plotRecords.map(r => simulatedCapital * ((1 + (r.tqqq_buyhold_pnl_pct || 0) / 100) / tqqqStartRatio));
+
+    const stratEndVal = equityData[equityData.length - 1];
+    const ndxEndVal = ndxNorm[ndxNorm.length - 1];
+    const tqqqEndVal = tqqqNorm[tqqqNorm.length - 1];
+
+    const stratRet = ((stratEndVal / simulatedCapital) - 1) * 100;
+    const ndxRet = ((ndxEndVal / simulatedCapital) - 1) * 100;
+    const tqqqRet = ((tqqqEndVal / simulatedCapital) - 1) * 100;
+
+    const stratSign = stratRet >= 0 ? "+" : "";
+    const ndxSign = ndxRet >= 0 ? "+" : "";
+    const tqqqSign = tqqqRet >= 0 ? "+" : "";
 
     const gradCyan = ctx.createLinearGradient(0, 0, 0, 350);
     gradCyan.addColorStop(0, "rgba(0, 242, 254, 0.28)");
@@ -391,7 +409,7 @@ function renderChart() {
         labels: labels,
         datasets: [
           {
-            label: "Strategy Portfolio Value",
+            label: "Strategy Portfolio",
             data: equityData,
             borderColor: "#00F2FE",
             borderWidth: 2.5,
@@ -402,7 +420,7 @@ function renderChart() {
             pointHoverRadius: 6,
           },
           {
-            label: `Starting Capital ($${(simulatedCapital / 1000).toFixed(0)}k)`,
+            label: `Baseline ($${(simulatedCapital / 1000).toFixed(0)}k)`,
             data: baseLine,
             borderColor: "rgba(255, 255, 255, 0.3)",
             borderWidth: 1.5,
@@ -434,10 +452,10 @@ function renderChart() {
     });
 
     legendBox.innerHTML = `
-      <div class="legend-item"><span class="legend-color-box" style="background:#00F2FE;"></span> Strategy Portfolio ($${(simulatedCapital/1000).toFixed(0)}k base)</div>
-      <div class="legend-item"><span class="legend-color-box" style="background:#A855F7;"></span> NDX Buy & Hold</div>
-      <div class="legend-item"><span class="legend-color-box" style="background:#F59E0B;"></span> TQQQ Buy & Hold</div>
-      <div class="legend-item"><span class="legend-color-box" style="background:rgba(255,255,255,0.4); border: 1px dashed white;"></span> Baseline ($${(simulatedCapital/1000).toFixed(0)}k)</div>
+      <div class="legend-item"><span class="legend-color-box" style="background:#00F2FE;"></span> Strategy: <strong>${formatCurrency(stratEndVal)}</strong> (${stratSign}${stratRet.toFixed(2)}%)</div>
+      <div class="legend-item"><span class="legend-color-box" style="background:#A855F7;"></span> NDX: <strong>${formatCurrency(ndxEndVal)}</strong> (${ndxSign}${ndxRet.toFixed(2)}%)</div>
+      <div class="legend-item"><span class="legend-color-box" style="background:#F59E0B;"></span> TQQQ: <strong>${formatCurrency(tqqqEndVal)}</strong> (${tqqqSign}${tqqqRet.toFixed(2)}%)</div>
+      <div class="legend-item"><span class="legend-color-box" style="background:rgba(255,255,255,0.4); border: 1px dashed white;"></span> Baseline: <strong>${formatCurrency(simulatedCapital)}</strong></div>
     `;
 
   } else if (currentTab === "technicals") {
@@ -589,7 +607,9 @@ function getCommonChartOptions(prefix = "") {
           label: function(context) {
             let val = context.raw;
             if (prefix === "$") {
-              return `${context.dataset.label}: $${val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+              const diffPct = ((val / simulatedCapital) - 1) * 100;
+              const sign = diffPct >= 0 ? "+" : "";
+              return `${context.dataset.label}: $${val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${sign}${diffPct.toFixed(2)}%)`;
             } else {
               return `${context.dataset.label}: ${val.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 2 })}`;
             }
