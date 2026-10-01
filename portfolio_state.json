@@ -2,11 +2,11 @@
   "position": "TQQQ_100",
   "allocation_pct": 1.0,
   "cash": 0.0,
-  "tqqq_shares": 5666.0955,
+  "tqqq_shares": 5666.0733,
   "sqqq_shares": 0.0,
   "tqqq_avg_cost": 78.73,
   "sqqq_avg_cost": 0.0,
-  "total_value": 446091.72,
+  "total_value": 446089.97,
   "starting_capital": 10000.0,
   "last_signal": "Bull trend confirmed: Price > SMA50 & SMA250, RSI 61.4",
   "last_updated": "2026-10-01T13:50:15",
@@ -14,5 +14,5 @@
   "trim_active": false,
   "prev_rsi": 61.45,
   "benchmark_ndx_start": 1775.739990234375,
-  "benchmark_tqqq_start": 0.2051851749420166
+  "benchmark_tqqq_start": 0.2051851898431778
 }

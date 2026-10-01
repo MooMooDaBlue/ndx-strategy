@@ -296,51 +296,73 @@ function renderUI(data) {
   }
 
   // Market & Technicals Cards
-  document.getElementById("ndxLevel").textContent = stats.ndx_price.toLocaleString("en-US", { minimumFractionDigits: 2 });
-  document.getElementById("ndxSma50").textContent = `SMA50: ${stats.sma50.toLocaleString("en-US", { minimumFractionDigits: 1 })}`;
-  document.getElementById("ndxSma250").textContent = `SMA250: ${stats.sma250.toLocaleString("en-US", { minimumFractionDigits: 1 })}`;
-  document.getElementById("rsiValue").textContent = stats.rsi.toFixed(1);
+  const latestDaily = (daily && daily.length > 0) ? daily[daily.length - 1] : {};
+  const curNdx = (stats && stats.ndx_price) || latestDaily.ndx_price || 0;
+  const curSma50 = (stats && stats.sma50) || latestDaily.sma50 || 0;
+  const curSma250 = (stats && stats.sma250) || latestDaily.sma250 || 0;
+  const curRsi = (stats && stats.rsi !== undefined) ? stats.rsi : (latestDaily.rsi !== undefined ? latestDaily.rsi : 50.0);
+
+  const ndxEl = document.getElementById("ndxLevel");
+  if (ndxEl) ndxEl.textContent = curNdx ? curNdx.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "--";
+
+  const sma50El = document.getElementById("ndxSma50");
+  if (sma50El) sma50El.textContent = curSma50 ? `SMA50: ${curSma50.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : "SMA50: --";
+
+  const sma250El = document.getElementById("ndxSma250");
+  if (sma250El) sma250El.textContent = curSma250 ? `SMA250: ${curSma250.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : "SMA250: --";
+
+  const rsiEl = document.getElementById("rsiValue");
+  if (rsiEl) rsiEl.textContent = typeof curRsi === "number" ? curRsi.toFixed(1) : "--";
 
   const rsiBadge = document.getElementById("rsiZoneBadge");
-  if (stats.rsi >= 75) {
-    rsiBadge.textContent = "OVERBOUGHT";
-    rsiBadge.style.color = "#F43F5E";
-    rsiBadge.style.background = "rgba(244, 63, 94, 0.15)";
-  } else if (stats.rsi <= 30) {
-    rsiBadge.textContent = "OVERSOLD";
-    rsiBadge.style.color = "#00F2FE";
-    rsiBadge.style.background = "rgba(0, 242, 254, 0.15)";
-  } else {
-    rsiBadge.textContent = "NEUTRAL";
-    rsiBadge.style.color = "#00E676";
-    rsiBadge.style.background = "rgba(0, 230, 118, 0.15)";
+  if (rsiBadge) {
+    if (curRsi >= 75) {
+      rsiBadge.textContent = "OVERBOUGHT";
+      rsiBadge.style.color = "#F43F5E";
+      rsiBadge.style.background = "rgba(244, 63, 94, 0.15)";
+    } else if (curRsi <= 30) {
+      rsiBadge.textContent = "OVERSOLD";
+      rsiBadge.style.color = "#00F2FE";
+      rsiBadge.style.background = "rgba(0, 242, 254, 0.15)";
+    } else {
+      rsiBadge.textContent = "NEUTRAL";
+      rsiBadge.style.color = "#00E676";
+      rsiBadge.style.background = "rgba(0, 230, 118, 0.15)";
+    }
   }
 
-  // Populate Year Filter if not already populated
+  // Populate Year Filter from active model's trades
   const yearSelect = document.getElementById("tradeYearFilter");
-  if (yearSelect && yearSelect.options.length <= 1 && data.trades) {
-    const years = [...new Set(data.trades.map(t => (t.date || "").substring(0, 4)).filter(Boolean))].sort().reverse();
+  const tradesList = modelObj.trades || data.trades || [];
+  if (yearSelect && tradesList.length > 0) {
+    const existingYears = new Set();
+    for (let i = 1; i < yearSelect.options.length; i++) {
+      existingYears.add(yearSelect.options[i].value);
+    }
+    const years = [...new Set(tradesList.map(t => (t.date || "").substring(0, 4)).filter(Boolean))].sort().reverse();
     years.forEach(yr => {
-      const opt = document.createElement("option");
-      opt.value = yr;
-      opt.textContent = yr;
-      yearSelect.appendChild(opt);
+      if (!existingYears.has(yr)) {
+        const opt = document.createElement("option");
+        opt.value = yr;
+        opt.textContent = yr;
+        yearSelect.appendChild(opt);
+      }
     });
   }
 
   // 4. Telemetry Panel
   const telemetryPos = document.getElementById("telemetryPos");
-  if (telemetryPos) telemetryPos.textContent = p.position;
+  if (telemetryPos) telemetryPos.textContent = p.position || "CASH";
   const telemetrySignal = document.getElementById("telemetrySignal");
   if (telemetrySignal) telemetrySignal.textContent = p.last_signal || "HOLD";
   const statTrades = document.getElementById("statTotalTrades");
-  if (statTrades) statTrades.textContent = stats.total_trades;
+  if (statTrades) statTrades.textContent = (stats && stats.total_trades) || tradesList.length || 0;
   const statDays = document.getElementById("statDaysTracked");
-  if (statDays) statDays.textContent = `${stats.trading_days_tracked} days`;
+  if (statDays) statDays.textContent = `${(stats && stats.trading_days_tracked) || (daily ? daily.length : 0)} days`;
   const statDD = document.getElementById("statMaxDD");
-  if (statDD) statDD.textContent = `${stats.max_drawdown_pct.toFixed(2)}%`;
+  if (statDD) statDD.textContent = `${((stats && stats.max_drawdown_pct) !== undefined ? stats.max_drawdown_pct : 0).toFixed(2)}%`;
   const statHWM = document.getElementById("statHWM");
-  if (statHWM) statHWM.textContent = formatCurrency(stats.high_water_mark * scaleFactor);
+  if (statHWM) statHWM.textContent = formatCurrency(((stats && stats.high_water_mark) || p.total_value || 10000) * scaleFactor);
 
   // 5. Trades Table
   renderTradesTable(modelObj.trades || data.trades);

@@ -324,6 +324,11 @@ def run_simulation(model_name):
         
     latest = daily_records[-1]
     stats = {
+        "ndx_price": latest["ndx_price"],
+        "sma50": latest["sma50"],
+        "sma250": latest["sma250"],
+        "high_water_mark": round(hwm, 2),
+        "trading_days_tracked": len(daily_records),
         "total_pnl": round(val - STARTING_CAPITAL, 2),
         "total_pnl_pct": round((val / STARTING_CAPITAL - 1) * 100, 2),
         "max_drawdown_pct": round(max_dd, 2),
