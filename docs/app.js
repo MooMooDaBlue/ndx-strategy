@@ -6,6 +6,8 @@
 
 let currentTab = "equity";
 let currentTimeframe = "ALL";
+let currentModel = "symmetric_atr";
+let overlayBothModels = true;
 let simulatedCapital = 10000;
 let cachedData = null;
 let chartInstance = null;
@@ -21,6 +23,28 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function initEventListeners() {
+  // Strategy Model selector buttons
+  document.querySelectorAll(".model-toggle-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".model-toggle-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentModel = btn.getAttribute("data-model");
+      if (cachedData) {
+        renderUI(cachedData);
+        renderChart();
+      }
+    });
+  });
+
+  // Model compare checkbox
+  const chkCompare = document.getElementById("chkCompareModels");
+  if (chkCompare) {
+    chkCompare.addEventListener("change", (e) => {
+      overlayBothModels = e.target.checked;
+      renderChart();
+    });
+  }
+
   // Tabs switching
   document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -179,10 +203,11 @@ async function fetchDashboardData(isBackground = false) {
    UI RENDERING
    ========================================================================== */
 function renderUI(data) {
-  const p = data.portfolio;
-  const stats = data.stats;
-  const cfg = data.config;
-  const daily = data.daily_summary;
+  const modelObj = (data.models && data.models[currentModel]) ? data.models[currentModel] : data;
+  const p = modelObj.portfolio || data.portfolio;
+  const stats = modelObj.stats || data.stats;
+  const cfg = data.config || {};
+  const daily = modelObj.daily_summary || data.daily_summary;
 
   const baseStartCap = p.starting_capital || 10000;
   const scaleFactor = simulatedCapital / baseStartCap;
@@ -318,48 +343,66 @@ function renderUI(data) {
   if (statHWM) statHWM.textContent = formatCurrency(stats.high_water_mark * scaleFactor);
 
   // 5. Trades Table
-  renderTradesTable(data.trades);
+  renderTradesTable(modelObj.trades || data.trades);
 
   // 6. Strategy Log Terminal
-  renderTerminal(data.recent_logs);
+  renderTerminal(modelObj.recent_logs || data.recent_logs);
 }
 
 /* ==========================================================================
    CHART RENDERING (CHART.JS)
    ========================================================================== */
 function renderChart() {
-  if (!cachedData || !cachedData.daily_summary) return;
+  if (!cachedData) return;
 
   const ctx = document.getElementById("mainChart").getContext("2d");
-  let records = [...cachedData.daily_summary];
+  
+  const activeModelObj = (cachedData.models && cachedData.models[currentModel]) ? cachedData.models[currentModel] : cachedData;
+  const otherModelKey = currentModel === "symmetric_atr" ? "original_agile" : "symmetric_atr";
+  const otherModelObj = (cachedData.models && cachedData.models[otherModelKey]) ? cachedData.models[otherModelKey] : null;
+
+  let records = activeModelObj.daily_summary ? [...activeModelObj.daily_summary] : [...(cachedData.daily_summary || [])];
+  let otherRecords = (otherModelObj && otherModelObj.daily_summary) ? [...otherModelObj.daily_summary] : null;
+  if (!records || records.length === 0) return;
 
   // Apply Timeframe & Era Filters
   if (currentTimeframe === "1M") {
     records = records.slice(-22);
+    if (otherRecords) otherRecords = otherRecords.slice(-22);
   } else if (currentTimeframe === "6M") {
     records = records.slice(-126);
+    if (otherRecords) otherRecords = otherRecords.slice(-126);
   } else if (currentTimeframe === "1Y") {
     records = records.slice(-252);
+    if (otherRecords) otherRecords = otherRecords.slice(-252);
   } else if (currentTimeframe === "5Y") {
     records = records.filter(r => r.date >= "2021-01-01");
+    if (otherRecords) otherRecords = otherRecords.filter(r => r.date >= "2021-01-01");
   } else if (currentTimeframe === "2022") {
     records = records.filter(r => r.date >= "2022-01-01" && r.date <= "2022-12-31");
+    if (otherRecords) otherRecords = otherRecords.filter(r => r.date >= "2022-01-01" && r.date <= "2022-12-31");
   } else if (currentTimeframe === "2020") {
     records = records.filter(r => r.date >= "2020-01-01" && r.date <= "2020-12-31");
+    if (otherRecords) otherRecords = otherRecords.filter(r => r.date >= "2020-01-01" && r.date <= "2020-12-31");
   }
 
   // Sampling for silky smooth performance on multi-thousand point datasets
   let plotRecords = records;
+  let plotOtherRecords = otherRecords;
   if (plotRecords.length > 500) {
     const step = Math.ceil(plotRecords.length / 400);
     const sampled = [];
+    const sampledOther = [];
     for (let i = 0; i < plotRecords.length; i += step) {
       sampled.push(plotRecords[i]);
+      if (plotOtherRecords && plotOtherRecords[i]) sampledOther.push(plotOtherRecords[i]);
     }
     if (sampled[sampled.length - 1] !== plotRecords[plotRecords.length - 1]) {
       sampled.push(plotRecords[plotRecords.length - 1]);
+      if (plotOtherRecords && plotOtherRecords.length > 0) sampledOther.push(plotOtherRecords[plotOtherRecords.length - 1]);
     }
     plotRecords = sampled;
+    if (plotOtherRecords && plotOtherRecords.length > 0) plotOtherRecords = sampledOther;
   }
 
   const labels = plotRecords.map(r => r.date);
@@ -368,9 +411,6 @@ function renderChart() {
   if (chartInstance) {
     chartInstance.destroy();
   }
-
-  const baseStartCap = cachedData.portfolio.starting_capital || 10000;
-  const scaleFactor = simulatedCapital / baseStartCap;
 
   if (currentTab === "equity") {
     // --- TAB 1: EQUITY VS BENCHMARKS (REBASED TO TIMEFRAME START) ---
@@ -382,77 +422,117 @@ function renderChart() {
     const tqqqStartRatio = Math.max(0.0001, 1 + (r0.tqqq_buyhold_pnl_pct || 0) / 100);
 
     // Rebased to simulatedCapital at the start of this specific timeframe
-    const equityData = plotRecords.map(r => simulatedCapital * (r.total_value / stratStartVal));
+    const activeEquityData = plotRecords.map(r => simulatedCapital * (r.total_value / stratStartVal));
     const baseLine = plotRecords.map(() => simulatedCapital);
     const ndxNorm = plotRecords.map(r => simulatedCapital * ((1 + (r.ndx_buyhold_pnl_pct || 0) / 100) / ndxStartRatio));
     const tqqqNorm = plotRecords.map(r => simulatedCapital * ((1 + (r.tqqq_buyhold_pnl_pct || 0) / 100) / tqqqStartRatio));
 
-    const stratEndVal = equityData[equityData.length - 1];
+    const activeEndVal = activeEquityData[activeEquityData.length - 1];
     const ndxEndVal = ndxNorm[ndxNorm.length - 1];
     const tqqqEndVal = tqqqNorm[tqqqNorm.length - 1];
 
-    const stratRet = ((stratEndVal / simulatedCapital) - 1) * 100;
+    const activeRet = ((activeEndVal / simulatedCapital) - 1) * 100;
     const ndxRet = ((ndxEndVal / simulatedCapital) - 1) * 100;
     const tqqqRet = ((tqqqEndVal / simulatedCapital) - 1) * 100;
 
-    const stratSign = stratRet >= 0 ? "+" : "";
+    const activeSign = activeRet >= 0 ? "+" : "";
     const ndxSign = ndxRet >= 0 ? "+" : "";
     const tqqqSign = tqqqRet >= 0 ? "+" : "";
 
-    const gradCyan = ctx.createLinearGradient(0, 0, 0, 350);
-    gradCyan.addColorStop(0, "rgba(0, 242, 254, 0.28)");
-    gradCyan.addColorStop(1, "rgba(0, 242, 254, 0.0)");
+    const activeName = currentModel === "symmetric_atr" ? "Symmetric 1.0× ATR" : "Original Agile (1% Buffer)";
+    const otherName = currentModel === "symmetric_atr" ? "Original Agile (1% Buffer)" : "Symmetric 1.0× ATR";
+    const activeColor = currentModel === "symmetric_atr" ? "#00F2FE" : "#10B981";
+    const otherColor = currentModel === "symmetric_atr" ? "#10B981" : "#00F2FE";
+
+    const gradActive = ctx.createLinearGradient(0, 0, 0, 350);
+    if (currentModel === "symmetric_atr") {
+      gradActive.addColorStop(0, "rgba(0, 242, 254, 0.28)");
+      gradActive.addColorStop(1, "rgba(0, 242, 254, 0.0)");
+    } else {
+      gradActive.addColorStop(0, "rgba(16, 185, 129, 0.28)");
+      gradActive.addColorStop(1, "rgba(16, 185, 129, 0.0)");
+    }
+
+    const datasets = [
+      {
+        label: `${activeName} (Active)`,
+        data: activeEquityData,
+        borderColor: activeColor,
+        borderWidth: 2.5,
+        backgroundColor: gradActive,
+        fill: true,
+        tension: 0.2,
+        pointRadius: plotRecords.length > 60 ? 0 : 3,
+        pointHoverRadius: 6,
+      }
+    ];
+
+    let otherLegendHtml = "";
+    if (overlayBothModels && plotOtherRecords && plotOtherRecords.length > 0) {
+      const otherR0 = plotOtherRecords[0];
+      const otherStartVal = Math.max(0.0001, otherR0.total_value);
+      const otherEquityData = plotOtherRecords.map(r => simulatedCapital * (r.total_value / otherStartVal));
+      const otherEndVal = otherEquityData[otherEquityData.length - 1];
+      const otherRet = ((otherEndVal / simulatedCapital) - 1) * 100;
+      const otherSign = otherRet >= 0 ? "+" : "";
+
+      datasets.push({
+        label: otherName,
+        data: otherEquityData,
+        borderColor: otherColor,
+        borderWidth: 2.0,
+        borderDash: [4, 4],
+        fill: false,
+        tension: 0.2,
+        pointRadius: plotOtherRecords.length > 60 ? 0 : 2,
+        pointHoverRadius: 5,
+      });
+
+      otherLegendHtml = `<div class="legend-item"><span class="legend-color-box" style="background:${otherColor}; border: 1px dashed white;"></span> ${otherName}: <strong>${formatCurrency(otherEndVal)}</strong> (${otherSign}${otherRet.toFixed(2)}%)</div>`;
+    }
+
+    datasets.push(
+      {
+        label: `Baseline ($${(simulatedCapital / 1000).toFixed(0)}k)`,
+        data: baseLine,
+        borderColor: "rgba(255, 255, 255, 0.3)",
+        borderWidth: 1.5,
+        borderDash: [5, 5],
+        fill: false,
+        pointRadius: 0,
+      },
+      {
+        label: "NDX Buy & Hold",
+        data: ndxNorm,
+        borderColor: "#A855F7",
+        borderWidth: 1.5,
+        fill: false,
+        tension: 0.2,
+        pointRadius: 0,
+      },
+      {
+        label: "TQQQ Buy & Hold",
+        data: tqqqNorm,
+        borderColor: "#F59E0B",
+        borderWidth: 1.5,
+        fill: false,
+        tension: 0.2,
+        pointRadius: 0,
+      }
+    );
 
     chartInstance = new Chart(ctx, {
       type: "line",
       data: {
         labels: labels,
-        datasets: [
-          {
-            label: "Strategy Portfolio",
-            data: equityData,
-            borderColor: "#00F2FE",
-            borderWidth: 2.5,
-            backgroundColor: gradCyan,
-            fill: true,
-            tension: 0.2,
-            pointRadius: plotRecords.length > 60 ? 0 : 3,
-            pointHoverRadius: 6,
-          },
-          {
-            label: `Baseline ($${(simulatedCapital / 1000).toFixed(0)}k)`,
-            data: baseLine,
-            borderColor: "rgba(255, 255, 255, 0.3)",
-            borderWidth: 1.5,
-            borderDash: [5, 5],
-            fill: false,
-            pointRadius: 0,
-          },
-          {
-            label: "NDX Buy & Hold",
-            data: ndxNorm,
-            borderColor: "#A855F7",
-            borderWidth: 1.5,
-            fill: false,
-            tension: 0.2,
-            pointRadius: 0,
-          },
-          {
-            label: "TQQQ Buy & Hold",
-            data: tqqqNorm,
-            borderColor: "#F59E0B",
-            borderWidth: 1.5,
-            fill: false,
-            tension: 0.2,
-            pointRadius: 0,
-          }
-        ]
+        datasets: datasets
       },
       options: getCommonChartOptions("$")
     });
 
     legendBox.innerHTML = `
-      <div class="legend-item"><span class="legend-color-box" style="background:#00F2FE;"></span> Strategy: <strong>${formatCurrency(stratEndVal)}</strong> (${stratSign}${stratRet.toFixed(2)}%)</div>
+      <div class="legend-item"><span class="legend-color-box" style="background:${activeColor};"></span> ${activeName} (Active): <strong>${formatCurrency(activeEndVal)}</strong> (${activeSign}${activeRet.toFixed(2)}%)</div>
+      ${otherLegendHtml}
       <div class="legend-item"><span class="legend-color-box" style="background:#A855F7;"></span> NDX: <strong>${formatCurrency(ndxEndVal)}</strong> (${ndxSign}${ndxRet.toFixed(2)}%)</div>
       <div class="legend-item"><span class="legend-color-box" style="background:#F59E0B;"></span> TQQQ: <strong>${formatCurrency(tqqqEndVal)}</strong> (${tqqqSign}${tqqqRet.toFixed(2)}%)</div>
       <div class="legend-item"><span class="legend-color-box" style="background:rgba(255,255,255,0.4); border: 1px dashed white;"></span> Baseline: <strong>${formatCurrency(simulatedCapital)}</strong></div>
@@ -655,7 +735,11 @@ function renderTradesTable(trades) {
 }
 
 function applyTradeFilters() {
-  if (!cachedData || !cachedData.trades) return;
+  if (!cachedData) return;
+
+  const activeModelObj = (cachedData.models && cachedData.models[currentModel]) ? cachedData.models[currentModel] : cachedData;
+  const tradesPool = activeModelObj.trades || cachedData.trades;
+  if (!tradesPool) return;
 
   const actionFilter = document.getElementById("tradeActionFilter");
   const yearFilter = document.getElementById("tradeYearFilter");
@@ -665,10 +749,10 @@ function applyTradeFilters() {
   const yearVal = yearFilter ? yearFilter.value : "ALL";
   const query = searchInput ? searchInput.value.toLowerCase().trim() : "";
 
-  const baseStartCap = cachedData.portfolio.starting_capital || 10000;
+  const baseStartCap = (activeModelObj.portfolio && activeModelObj.portfolio.starting_capital) || 10000;
   const scaleFactor = simulatedCapital / baseStartCap;
 
-  let filtered = [...cachedData.trades];
+  let filtered = [...tradesPool];
 
   if (actionVal !== "ALL") {
     filtered = filtered.filter(t => (t.action || "").toUpperCase().includes(actionVal));

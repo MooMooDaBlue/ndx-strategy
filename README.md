@@ -24,6 +24,7 @@ The live interactive terminal is hosted continuously on GitHub Pages:
 
 👉 **[https://MooMooDaBlue.github.io/ndx-strategy/](https://MooMooDaBlue.github.io/ndx-strategy/)**
 
+- **Dual Strategy Ruleset Benchmarking**: Toggle between **Symmetric 1.0× ATR** (Macro Defensive Hysteresis, +4,361% 16Y return) and **Original Agile Model** (Fast SMA50 Stop & 1% Confirmation Buffer, +2,976% 16Y return), or overlay both models side-by-side on the chart!
 - **Interactive Capital Simulator**: Test any initial capital amount ($5K, $10K, $25K, $50K, $100K presets or any custom figure) to see scaled returns, drawdowns, and compounded terminal value.
 - **Multi-Era Macro Stress-Testing**: Instant 1-click toggles across key historical regimes: **1M**, **6M**, **1Y**, **5Y**, **2022 Bear Market** (-80% TQQQ crash avoidance), **2020 COVID Crash**, and **16Y Full Inception (2010–2026)**.
 - **Real-Time Market Tracking**: Live NDX status, countdown timer to daily run, and key indicator gauges (SMA50, SMA250, RSI-14).

@@ -135,6 +135,20 @@ def start_scheduler_thread():
 # ─────────────────────────────────────────────
 def get_dashboard_data():
     """Read and compile all current data from files into a single JSON payload."""
+    data_json_path = os.path.join(WEB_DIR, "data.json")
+    if os.path.exists(data_json_path):
+        try:
+            with open(data_json_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                data["scheduler"] = {
+                    "is_active_session": is_trading_day(),
+                    "next_run_target": "13:50:00 MT (15:50:00 ET)",
+                    "server_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                return data
+        except Exception as e:
+            print(f"Error loading {data_json_path}: {e}")
+
     portfolio_file = os.path.join(BASE_DIR, "portfolio_state.json")
     daily_file = os.path.join(BASE_DIR, "daily_summary.csv")
     trade_file = os.path.join(BASE_DIR, "trade_log.csv")

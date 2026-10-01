@@ -151,6 +151,41 @@
       </div>
     </section>
 
+    <!-- Strategy Model Selector Bar -->
+    <section class="model-selector-bar">
+      <div class="model-sel-left">
+        <div class="model-sel-label">
+          <i class="fa-solid fa-code-compare"></i>
+          <span>STRATEGY RULESET:</span>
+        </div>
+        <div class="model-toggle-group">
+          <button class="model-toggle-btn active" id="btnModelSymmetric" data-model="symmetric_atr">
+            <span class="model-icon-tag"><i class="fa-solid fa-shield-halved"></i></span>
+            <div class="model-btn-info">
+              <span class="model-name">Symmetric 1.0× ATR</span>
+              <span class="model-desc">Macro Defensive Hysteresis Buffer</span>
+            </div>
+            <span class="model-badge-stat badge-cyan">+4,361% (16Y)</span>
+          </button>
+          
+          <button class="model-toggle-btn" id="btnModelOriginal" data-model="original_agile">
+            <span class="model-icon-tag"><i class="fa-solid fa-bolt"></i></span>
+            <div class="model-btn-info">
+              <span class="model-name">Original Agile (1% Buffer)</span>
+              <span class="model-desc">Immediate SMA50 Stop & Tight Re-Entry</span>
+            </div>
+            <span class="model-badge-stat badge-emerald">+2,976% (16Y)</span>
+          </button>
+        </div>
+      </div>
+      <div class="model-sel-right">
+        <label class="model-overlay-toggle" title="Plot both strategy models side-by-side on the chart">
+          <input type="checkbox" id="chkCompareModels" checked>
+          <span><i class="fa-solid fa-layer-group"></i> Compare Both on Chart</span>
+        </label>
+      </div>
+    </section>
+
     <!-- Interactive Capital Simulator Bar -->
     <section class="simulator-bar">
       <div class="sim-left">
