@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NDX Quant Strategy — Paper Trading Terminal</title>
+  
+  <!-- Modern Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome for Premium Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Chart.js for High Performance Canvas Charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Top Global Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo-mark">
+          <div class="logo-pulse"></div>
+          <i class="fa-solid fa-bolt-lightning logo-icon"></i>
+        </div>
+        <div class="brand-info">
+          <div class="brand-title">
+            <span>NDX QUANT</span>
+            <span class="badge-version">v2.4 PRO</span>
+          </div>
+          <div class="brand-subtitle">SMA50 / SMA250 / RSI Systematic Strategy</div>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <div class="market-status-pill" id="marketStatusPill">
+          <span class="status-dot"></span>
+          <span class="status-label" id="marketStatusText">CHECKING MARKET...</span>
+        </div>
+        <div class="time-widget">
+          <span id="clockTimeMT">--:--:-- MT</span>
+          <span class="time-sep">•</span>
+          <span id="clockTimeEST">--:--:-- EST</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="countdown-card" title="Next scheduled run is every trading day at 1:50 PM MT (3:50 PM EST)">
+          <div class="countdown-label">NEXT RUN IN</div>
+          <div class="countdown-val" id="countdownTimer">--:--:--</div>
+        </div>
+        
+        <button class="btn-run-strategy" id="btnRunStrategy" title="Trigger strategy check immediately">
+          <i class="fa-solid fa-play" id="runIcon"></i>
+          <span id="runText">Run Now</span>
+        </button>
+
+        <button class="btn-refresh" id="btnRefresh" title="Force Refresh Data">
+          <i class="fa-solid fa-arrows-rotate" id="refreshIcon"></i>
+          <span>Sync</span>
+        </button>
+
+        <div class="auto-sync-status">
+          <span class="pulse-green"></span>
+          <span class="sync-text">Auto-Sync On (10s)</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Regime / Signal Banner -->
+    <section class="regime-hero-banner" id="regimeBanner">
+      <div class="regime-left">
+        <div class="regime-badge" id="regimeBadge">
+          <i class="fa-solid fa-shield-halved" id="regimeIcon"></i>
+          <span id="regimeBadgeText">LOADING POSITION...</span>
+        </div>
+        <div class="regime-title" id="regimeHeadline">Scanning Market Data...</div>
+        <div class="regime-desc" id="regimeReason">Calculating signals based on latest close prices.</div>
+      </div>
+      <div class="regime-right">
+        <div class="safety-indicator">
+          <div class="safety-label">DISTANCE TO SMA50 EXIT LINE</div>
+          <div class="safety-value" id="distSma50Text">--</div>
+          <div class="safety-sub" id="distSma50Sub">Buffer safety margin</div>
+        </div>
+        <div class="safety-indicator">
+          <div class="safety-label">MOMENTUM HEADROOM (RSI 75)</div>
+          <div class="safety-value" id="distRsiText">--</div>
+          <div class="safety-sub">Remaining before trim</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 KPI Cards Grid -->
+    <section class="kpi-grid">
+      <!-- Card 1: Total Portfolio -->
+      <div class="kpi-card card-glow-emerald">
+        <div class="kpi-top">
+          <span class="kpi-title">TOTAL PORTFOLIO VALUE</span>
+          <span class="kpi-icon-box"><i class="fa-solid fa-wallet"></i></span>
+        </div>
+        <div class="kpi-value" id="totalValue">$0.00</div>
+        <div class="kpi-footer">
+          <span class="pnl-pill" id="pnlPill">$0.00 (0.00%)</span>
+          <span class="kpi-subtext" id="startingCapText">Base: $40,000.00</span>
+        </div>
+      </div>
+
+      <!-- Card 2: Current Holdings -->
+      <div class="kpi-card card-glow-blue">
+        <div class="kpi-top">
+          <span class="kpi-title">ACTIVE HOLDINGS & ALLOCATION</span>
+          <span class="kpi-icon-box"><i class="fa-solid fa-chart-pie"></i></span>
+        </div>
+        <div class="kpi-value" id="holdingsTitle">--</div>
+        <div class="kpi-footer">
+          <span class="kpi-detail" id="holdingsShares">-- shares</span>
+          <span class="kpi-subtext" id="holdingsCost">Cost basis: --</span>
+        </div>
+      </div>
+
+      <!-- Card 3: NDX Level -->
+      <div class="kpi-card card-glow-purple">
+        <div class="kpi-top">
+          <span class="kpi-title">NASDAQ-100 (^NDX) LEVEL</span>
+          <span class="kpi-icon-box"><i class="fa-solid fa-arrow-trend-up"></i></span>
+        </div>
+        <div class="kpi-value" id="ndxLevel">0.00</div>
+        <div class="kpi-footer">
+          <span class="kpi-detail" id="ndxSma50">SMA50: --</span>
+          <span class="kpi-subtext" id="ndxSma250">SMA250: --</span>
+        </div>
+      </div>
+
+      <!-- Card 4: RSI Indicator -->
+      <div class="kpi-card card-glow-pink">
+        <div class="kpi-top">
+          <span class="kpi-title">RSI (14) MOMENTUM</span>
+          <span class="kpi-icon-box"><i class="fa-solid fa-gauge-high"></i></span>
+        </div>
+        <div class="kpi-value" id="rsiValue">0.0</div>
+        <div class="kpi-footer">
+          <span class="rsi-zone-badge" id="rsiZoneBadge">NORMAL</span>
+          <span class="kpi-subtext">Overbought: 75 | Oversold: 30</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive Capital Simulator Bar -->
+    <section class="simulator-bar">
+      <div class="sim-left">
+        <div class="sim-title">
+          <i class="fa-solid fa-sliders sim-icon"></i>
+          <span>Capital Simulator:</span>
+        </div>
+        <div class="sim-presets">
+          <button class="sim-btn" data-amt="5000">$5K</button>
+          <button class="sim-btn active" data-amt="10000">$10K</button>
+          <button class="sim-btn" data-amt="25000">$25K</button>
+          <button class="sim-btn" data-amt="50000">$50K</button>
+          <button class="sim-btn" data-amt="100000">$100K</button>
+        </div>
+      </div>
+      <div class="sim-right">
+        <div class="sim-input-box">
+          <span class="currency-symbol">$</span>
+          <input type="number" id="simCustomCapital" value="10000" min="100" max="10000000" step="1000" placeholder="Custom Capital">
+        </div>
+        <div class="sim-result-badge" id="simResultBadge">
+          <span class="sim-result-label">Compounded Value:</span>
+          <span class="sim-result-val" id="simResultValue">$497,486.24</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Content Layout (Left: Charts & Table, Right: Telemetry & Terminal) -->
+    <main class="dashboard-body">
+      
+      <!-- Left Column: Interactive Visualizations -->
+      <div class="col-main">
+        
+        <!-- Interactive Chart Card -->
+        <div class="panel-card chart-panel">
+          <div class="panel-header">
+            <div class="tabs-group">
+              <button class="tab-btn active" data-tab="equity"><i class="fa-solid fa-chart-line"></i> Portfolio Equity & Benchmarks</button>
+              <button class="tab-btn" data-tab="technicals"><i class="fa-solid fa-chart-simple"></i> NDX vs SMAs</button>
+              <button class="tab-btn" data-tab="rsi"><i class="fa-solid fa-wave-square"></i> RSI(14) Momentum</button>
+            </div>
+            
+            <div class="timeframe-group">
+              <button class="tf-btn" data-tf="1M">1M</button>
+              <button class="tf-btn" data-tf="6M">6M</button>
+              <button class="tf-btn" data-tf="1Y">1Y</button>
+              <button class="tf-btn" data-tf="5Y">5Y</button>
+              <button class="tf-btn" data-tf="2022">2022 Bear</button>
+              <button class="tf-btn" data-tf="2020">2020 COVID</button>
+              <button class="tf-btn active" data-tf="ALL">16Y (ALL)</button>
+            </div>
+          </div>
+          
+          <div class="chart-container-wrapper">
+            <canvas id="mainChart"></canvas>
+          </div>
+
+          <div class="chart-legend-custom" id="chartLegend">
+            <!-- Populated via Javascript -->
+          </div>
+        </div>
+
+        <!-- Strategy Trade Log Table -->
+        <div class="panel-card table-panel">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <i class="fa-solid fa-receipt panel-icon"></i>
+              <div>
+                <h3 class="panel-title">Execution Trade Log</h3>
+                <span class="panel-subtitle">Audited execution history (2010–2026)</span>
+              </div>
+            </div>
+            <div class="table-filters-group">
+              <select id="tradeActionFilter" class="table-select-filter">
+                <option value="ALL">All Actions</option>
+                <option value="BUY">BUY (100%)</option>
+                <option value="SELL">SELL / CASH</option>
+                <option value="ADJUST">TRIM (30%/50%)</option>
+              </select>
+              <select id="tradeYearFilter" class="table-select-filter">
+                <option value="ALL">All Years</option>
+              </select>
+              <div class="table-search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="tradeSearchInput" placeholder="Filter trades...">
+              </div>
+            </div>
+          </div>
+
+          <div class="table-scroll-container">
+            <table class="data-table" id="tradeTable">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Action</th>
+                  <th>Ticker</th>
+                  <th>Shares</th>
+                  <th>Execution Price</th>
+                  <th>Total Value</th>
+                  <th>NDX Level</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              <tbody id="tradeTableBody">
+                <tr><td colspan="8" class="text-center text-muted">Loading trade history...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Sidebar Metrics, Gauges & Live Terminal -->
+      <div class="col-sidebar">
+        
+        <!-- Strategy Telemetry Gauges -->
+        <div class="panel-card sidebar-panel">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <i class="fa-solid fa-satellite-dish panel-icon"></i>
+              <h3 class="panel-title">Strategy Telemetry</h3>
+            </div>
+          </div>
+
+          <div class="telemetry-body">
+            <!-- Gauge 1: Exit Threshold Distance -->
+            <div class="telemetry-item">
+              <div class="telemetry-labels">
+                <span>SMA50 Safety Buffer</span>
+                <span class="text-emerald font-mono" id="telSma50Val">--</span>
+              </div>
+              <div class="progress-bar-track">
+                <div class="progress-bar-fill fill-emerald" id="telSma50Fill" style="width: 50%;"></div>
+              </div>
+              <div class="telemetry-hint">Trigger level: Price &lt; SMA50 (29,410.9)</div>
+            </div>
+
+            <!-- Gauge 2: RSI Overbought Trim Distance -->
+            <div class="telemetry-item">
+              <div class="telemetry-labels">
+                <span>RSI Heat Level</span>
+                <span class="text-pink font-mono" id="telRsiVal">-- / 75</span>
+              </div>
+              <div class="progress-bar-track">
+                <div class="progress-bar-fill fill-pink" id="telRsiFill" style="width: 61%;"></div>
+              </div>
+              <div class="telemetry-hint">Trim level: RSI &ge; 75.0 (Trim to 30% TQQQ)</div>
+            </div>
+
+            <!-- Gauge 3: Asset Allocation -->
+            <div class="telemetry-item">
+              <div class="telemetry-labels">
+                <span>Portfolio Asset Mix</span>
+                <span class="text-cyan font-mono" id="telAllocVal">100% TQQQ</span>
+              </div>
+              <div class="allocation-bar">
+                <div class="alloc-segment alloc-tqqq" id="allocTqqq" style="width: 100%;" title="TQQQ"></div>
+                <div class="alloc-segment alloc-cash" id="allocCash" style="width: 0%;" title="Cash"></div>
+              </div>
+              <div class="alloc-legend">
+                <span><span class="legend-dot dot-tqqq"></span> TQQQ (<span id="allocTqqqPct">100%</span>)</span>
+                <span><span class="legend-dot dot-cash"></span> Cash (<span id="allocCashPct">0%</span>)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Stats Grid -->
+          <div class="sidebar-stats-grid">
+            <div class="stat-pill">
+              <span class="stat-pill-label">Total Trades</span>
+              <span class="stat-pill-val" id="statTotalTrades">--</span>
+            </div>
+            <div class="stat-pill">
+              <span class="stat-pill-label">Sessions Tracked</span>
+              <span class="stat-pill-val" id="statDaysTracked">--</span>
+            </div>
+            <div class="stat-pill">
+              <span class="stat-pill-label">Max Drawdown</span>
+              <span class="stat-pill-val text-rose" id="statMaxDD">--</span>
+            </div>
+            <div class="stat-pill">
+              <span class="stat-pill-label">High Water Mark</span>
+              <span class="stat-pill-val" id="statHWM">--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Terminal / Strategy Log Window -->
+        <div class="panel-card terminal-panel">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="term-dot red"></span>
+              <span class="term-dot yellow"></span>
+              <span class="term-dot green"></span>
+            </div>
+            <span class="terminal-title font-mono">strategy.log [live stream]</span>
+            <button class="btn-term-action" id="btnCopyLog" title="Copy Log to Clipboard">
+              <i class="fa-regular fa-copy"></i>
+            </button>
+          </div>
+
+          <div class="terminal-window" id="terminalWindow">
+            <div class="terminal-loader font-mono text-muted">Listening for strategy log output...</div>
+          </div>
+
+          <div class="terminal-footer">
+            <div class="term-status-pill">
+              <span class="pulse-green sm"></span>
+              <span>SYNCHRONIZED</span>
+            </div>
+            <label class="term-autoscroll">
+              <input type="checkbox" id="chkAutoScroll" checked>
+              <span>Auto-scroll</span>
+            </label>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- Bottom Status Footer -->
+    <footer class="app-footer">
+      <div class="footer-left">
+        <span>Portfolio State: <strong>portfolio_state.json</strong></span>
+        <span class="footer-sep">•</span>
+        <span>Daily Log: <strong>daily_summary.csv</strong></span>
+        <span class="footer-sep">•</span>
+        <span>Trade History: <strong>trade_log.csv</strong></span>
+      </div>
+      <div class="footer-right">
+        <span>Trading Schedule: <strong>Daily at 1:50 PM MT (3:50 PM EST)</strong></span>
+        <span class="footer-sep">•</span>
+        <span class="text-cyan">Auto-refreshes every 10 seconds</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

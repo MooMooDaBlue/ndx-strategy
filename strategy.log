@@ -1,0 +1,25 @@
+============================================================
+NDX Quant Systematic Trading Strategy — Historical Engine Initialized
+Inception Date: 2010-02-11 | Starting Capital: $10,000.00
+Protected Sessions Tracked: 4185 | Total Executions: 463
+============================================================
+Current Status as of 2026-10-01:
+  Position:       TQQQ_100
+  Portfolio Value: $497,486.24
+  Net Total P&L:  $+487,486.24 (+4874.86%)
+  TQQQ Holdings:  6318.8902 shares @ $78.73
+============================================================
+2026-10-01 13:50:15 [INFO] Daily Run Finished: TQQQ_100 position protected and holding.
+2026-10-01 15:26:08,171 [INFO] ============================================================
+2026-10-01 15:26:08,171 [INFO] NDX SMA + RSI Strategy — Daily Run
+2026-10-01 15:26:08,172 [INFO] Run time: 2026-10-01 15:26:08
+2026-10-01 15:26:08,172 [INFO] ============================================================
+2026-10-01 15:26:08,172 [INFO] Fetching data for ^NDX...
+2026-10-01 15:26:08,572 [INFO]   ^NDX: 501 bars fetched, latest close: 30501.56
+2026-10-01 15:26:08,572 [INFO] Fetching data for TQQQ...
+2026-10-01 15:26:08,720 [INFO]   TQQQ: 5 bars fetched, latest close: 78.73
+2026-10-01 15:26:08,720 [INFO] Fetching data for SQQQ...
+2026-10-01 15:26:08,887 [INFO]   SQQQ: 5 bars fetched, latest close: 34.11
+2026-10-01 15:26:08,887 [INFO] Current Prices — TQQQ: $78.73 | SQQQ: $34.11
+2026-10-01 15:26:08,888 [INFO] Portfolio loaded: TQQQ_100 | Value: $497,486.24
+2026-10-01 15:26:08,888 [INFO]   Already ran today (2026-10-01) — skipping duplicate run.

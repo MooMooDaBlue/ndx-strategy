@@ -1,0 +1,18 @@
+{
+  "position": "TQQQ_100",
+  "allocation_pct": 1.0,
+  "cash": 0.0,
+  "tqqq_shares": 6318.890153602851,
+  "sqqq_shares": 0.0,
+  "tqqq_avg_cost": 77.0010986328125,
+  "sqqq_avg_cost": 0.0,
+  "total_value": 497486.2430052471,
+  "starting_capital": 10000.0,
+  "last_signal": "HOLD - Full TQQQ (Inception Engine Active)",
+  "last_updated": "2026-10-01T13:50:15",
+  "last_run_date": "2026-10-01",
+  "trim_active": false,
+  "prev_rsi": 61.446778784534246,
+  "benchmark_ndx_start": 1775.739990234375,
+  "benchmark_tqqq_start": 0.2051851749420166
+}

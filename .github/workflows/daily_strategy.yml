@@ -1,0 +1,47 @@
+name: Daily Strategy Execution & Pages Sync
+
+on:
+  schedule:
+    # Runs Monday through Friday at 19:50 UTC (1:50 PM Mountain Time / 3:50 PM Eastern Time)
+    - cron: '50 19 * * 1-5'
+  workflow_dispatch: # Allows manual trigger from GitHub UI anytime
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "strategy-execution"
+  cancel-in-progress: false
+
+jobs:
+  run-strategy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Execute Daily Strategy & Sync Pages
+        run: |
+          python run_cloud_strategy.py
+
+      - name: Commit and Push State Updates
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add portfolio_state.json daily_summary.csv trade_log.csv strategy.log performance_chart.png docs/ web/data.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto: Daily Strategy Execution [skip ci]" && git push)
