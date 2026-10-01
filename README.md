@@ -3,6 +3,15 @@
 [![Daily Strategy Execution & Pages Sync](https://github.com/MooMooDaBlue/ndx-strategy/actions/workflows/daily_strategy.yml/badge.svg)](https://github.com/MooMooDaBlue/ndx-strategy/actions/workflows/daily_strategy.yml)
 [![Live Web Dashboard](https://img.shields.io/badge/Live_Dashboard-GitHub_Pages-00E676?style=flat&logo=googlechrome&logoColor=white)](https://MooMooDaBlue.github.io/ndx-strategy/)
 
+> [!CAUTION]
+> # ⚠️ DISCLAIMER: THIS IS NOT FINANCIAL ADVICE ⚠️
+> **THIS PROJECT IS STRICTLY AN OPEN-SOURCE PAPER-TRADING SIMULATOR AND QUANTITATIVE BENCHMARK FOR RESEARCH AND EDUCATIONAL PURPOSES ONLY.**
+>
+> - **DO NOT TRADE REAL MONEY BASED ON THIS SYSTEM, REPOSITORY, DATA, OR SIGNALS.**
+> - Leveraged instruments like **TQQQ (3x Bull)** and **SQQQ (3x Bear)** carry severe volatility decay and high risk of **total loss of capital**.
+> - Simulated, hypothetical, or backtested performance is **never a guarantee of future market results**.
+> - The developers and contributors assume **no responsibility or liability** for any financial trades or investment decisions you make.
+
 An institutional-grade, fully automated algorithmic paper-trading strategy and real-time monitoring terminal for NASDAQ-100 leveraged ETFs (**TQQQ / SQQQ**). 
 
 Runs **100% serverless and autonomously** in the cloud via GitHub Actions and GitHub Pages with zero required local hardware or maintenance.
@@ -96,6 +105,11 @@ python web_dashboard.py
 
 ---
 
-## 📌 Disclaimer
+## ⚠️ Comprehensive Legal Disclaimer — THIS IS NOT FINANCIAL ADVICE
 
-This project is an open-source educational paper-trading simulator and quantitative benchmark created for research and demonstration purposes. It does not constitute financial or investment advice. Always conduct your own research before trading leveraged financial instruments.
+> **READ CAREFULLY BEFORE ACCESSING, USING, OR FORKING THIS REPOSITORY:**
+>
+> 1. **NOT FINANCIAL, LEGAL, OR INVESTMENT ADVICE**: None of the content, code, algorithms, data, backtests, simulations, charts, trade logs, or signals presented in this repository or associated web dashboards constitute financial, investment, legal, tax, or trading advice. It is strictly not an offer, recommendation, or solicitation to buy or sell any security, ETF, derivative, or digital asset.
+> 2. **EDUCATIONAL & PAPER-TRADING BENCHMARK ONLY**: This software is an open-source paper-trading framework and quantitative simulation designed purely to benchmark algorithmic models against buy-and-hold strategies. Simulated paper trades do not represent actual trading and have fundamental limitations (e.g. slippage, liquidity constraints, transaction fees, execution delays, margin/borrow rates, and psychological factors are not modeled).
+> 3. **EXTREME LEVERAGED ETF RISKS**: Triple-leveraged ETFs (**TQQQ** and **SQQQ**) are high-risk financial derivatives designed solely for short-term institutional speculation. Holding leveraged ETFs over extended periods carries extreme compounding risk, volatility decay, and substantial probability of catastrophic loss or total depletion of invested capital.
+> 4. **NO WARRANTY & ZERO LIABILITY**: The software is provided "as is", without warranty of any kind, express or implied. The author, maintainers, and contributors are not licensed financial advisors, broker-dealers, or registered analysts. Under no circumstances shall the author or contributors be liable for any direct, indirect, special, incidental, or consequential damages or financial losses arising from the use of or inability to use this repository. Always consult an accredited financial professional before making real investment decisions.
