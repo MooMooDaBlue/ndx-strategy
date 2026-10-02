@@ -233,6 +233,23 @@ def get_dashboard_data():
         elif next_run_dt.weekday() == 6:
             next_run_dt += timedelta(days=1)
 
+    # Extract latest live prices for active ETFs
+    tqqq_price = 0.0
+    sqqq_price = 0.0
+    for line in reversed(recent_logs):
+        if "Current Prices — TQQQ:" in line:
+            try:
+                parts = line.split("TQQQ: $")[1].split(" | SQQQ: $")
+                tqqq_price = float(parts[0])
+                sqqq_price = float(parts[1].split()[0])
+                break
+            except Exception:
+                pass
+    if tqqq_price <= 0 and portfolio.get("tqqq_shares", 0) > 0:
+        tqqq_price = round((portfolio["total_value"] - portfolio.get("cash", 0)) / portfolio["tqqq_shares"], 2)
+    if sqqq_price <= 0:
+        sqqq_price = 33.12  # fallback
+
     fresh_stats = {
         "total_pnl": round(total_pnl, 2),
         "total_pnl_pct": round(total_pnl_pct, 2),
@@ -241,6 +258,8 @@ def get_dashboard_data():
         "trading_days_tracked": len(daily_records),
         "total_trades": len(trades),
         "ndx_price": round(ndx_price, 2),
+        "tqqq_price": round(tqqq_price, 2),
+        "sqqq_price": round(sqqq_price, 2),
         "sma50": round(sma50, 2),
         "sma250": round(sma250, 2),
         "rsi": round(rsi, 2),

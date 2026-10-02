@@ -618,15 +618,30 @@ function renderUI(data) {
   const reason = document.getElementById("regimeReason");
   const icon = document.getElementById("regimeIcon");
 
+  // Determine current active asset price & SQQQ price
+  const latestDaily = (daily && daily.length > 0) ? daily[daily.length - 1] : {};
+  const curNdx = (stats && stats.ndx_price) || latestDaily.ndx_price || 0;
+  const curSma50 = (stats && stats.sma50) || latestDaily.sma50 || 0;
+  const curSma250 = (stats && stats.sma250) || latestDaily.sma250 || 0;
+  const curRsi = (stats && stats.rsi !== undefined) ? stats.rsi : (latestDaily.rsi !== undefined ? latestDaily.rsi : 50.0);
+
+  // Asset prices
+  let tqqqPx = (stats && stats.tqqq_price) || 0;
+  if (!tqqqPx && p.tqqq_shares > 0) {
+    tqqqPx = (p.total_value - p.cash) / p.tqqq_shares;
+  }
+  if (!tqqqPx) tqqqPx = 81.01;
+  let sqqqPx = (stats && stats.sqqq_price) || 33.12;
+
   if (p.position === "TQQQ_100") {
     banner.className = "regime-hero-banner regime-bull";
-    badge.className = "regime-badge badge-bull";
+    badge.className = "regime-badge";
     badgeText.textContent = "100% TQQQ (BULL TREND)";
     headline.textContent = "Full Bull Regime Confirmed";
     icon.className = "fa-solid fa-bolt-lightning";
   } else if (p.position === "TQQQ_50") {
     banner.className = "regime-hero-banner regime-bull";
-    badge.className = "regime-badge badge-bull";
+    badge.className = "regime-badge";
     badgeText.textContent = "50% TQQQ (TRIMMED)";
     headline.textContent = "Cautious Bull Exposure (Divergence Trim)";
     icon.className = "fa-solid fa-triangle-exclamation";
@@ -651,15 +666,142 @@ function renderUI(data) {
   }
   reason.textContent = p.last_signal || "System executing systematic rules.";
 
-  // Safety margins
-  document.getElementById("distSma50Text").textContent = `${stats.dist_sma50_pts >= 0 ? '+' : ''}${stats.dist_sma50_pts.toFixed(1)} pts (${stats.dist_sma50_pct >= 0 ? '+' : ''}${stats.dist_sma50_pct.toFixed(2)}%)`;
-  const distRsi = (75 - stats.rsi).toFixed(1);
-  document.getElementById("distRsiText").textContent = distRsi > 0 ? `${distRsi} pts` : "OVERBOUGHT";
-
-  // 3. Scaled KPI Cards
+  // Scaled values
   const scaledTotal = p.total_value * scaleFactor;
   const scaledPnl = (p.total_value - baseStartCap) * scaleFactor;
   const pnlPct = ((p.total_value / baseStartCap) - 1) * 100;
+
+  // Left Quick Chips (no mental math on holdings or levels)
+  const heroHoldings = document.getElementById("heroHoldingsText");
+  if (heroHoldings) {
+    if (p.tqqq_shares > 0) {
+      heroHoldings.textContent = `${(p.tqqq_shares * scaleFactor).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TQQQ @ $${tqqqPx.toFixed(2)}`;
+    } else if (p.sqqq_shares > 0) {
+      heroHoldings.textContent = `${(p.sqqq_shares * scaleFactor).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SQQQ @ $${sqqqPx.toFixed(2)}`;
+    } else {
+      heroHoldings.textContent = `100% Cash (${formatCurrency(p.cash * scaleFactor)})`;
+    }
+  }
+
+  const heroVal = document.getElementById("heroValuationText");
+  if (heroVal) heroVal.textContent = formatCurrency(scaledTotal);
+
+  const heroSma = document.getElementById("heroSma50Text");
+  if (heroSma) heroSma.textContent = curSma50 ? curSma50.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : "--";
+
+  // Telemetry Card 1: Active Asset Price
+  const assetPriceEl = document.getElementById("heroAssetPrice");
+  const assetBadgeEl = document.getElementById("heroAssetBadge");
+  const avgCostEl = document.getElementById("heroAvgCost");
+  const unrealizedPill = document.getElementById("heroUnrealizedPill");
+  const sqqqQuoteEl = document.getElementById("heroSqqqPrice");
+
+  if (p.position.startsWith("TQQQ")) {
+    if (assetBadgeEl) {
+      assetBadgeEl.textContent = "TQQQ 3× BULL";
+      assetBadgeEl.className = "ht-badge badge-bull";
+    }
+    if (assetPriceEl) assetPriceEl.textContent = `$${tqqqPx.toFixed(2)}`;
+    if (avgCostEl) avgCostEl.textContent = `$${p.tqqq_avg_cost.toFixed(2)}`;
+    if (unrealizedPill) {
+      const uPct = p.tqqq_avg_cost > 0 ? ((tqqqPx / p.tqqq_avg_cost - 1) * 100) : 0;
+      unrealizedPill.textContent = `${uPct >= 0 ? "+" : ""}${uPct.toFixed(2)}%`;
+      unrealizedPill.className = `ht-pnl-pill ${uPct >= 0 ? "positive" : "negative"}`;
+    }
+  } else if (p.position === "SQQQ") {
+    if (assetBadgeEl) {
+      assetBadgeEl.textContent = "SQQQ 3× BEAR";
+      assetBadgeEl.className = "ht-badge badge-bear";
+    }
+    if (assetPriceEl) assetPriceEl.textContent = `$${sqqqPx.toFixed(2)}`;
+    if (avgCostEl) avgCostEl.textContent = `$${p.sqqq_avg_cost.toFixed(2)}`;
+    if (unrealizedPill) {
+      const uPct = p.sqqq_avg_cost > 0 ? ((sqqqPx / p.sqqq_avg_cost - 1) * 100) : 0;
+      unrealizedPill.textContent = `${uPct >= 0 ? "+" : ""}${uPct.toFixed(2)}%`;
+      unrealizedPill.className = `ht-pnl-pill ${uPct >= 0 ? "positive" : "negative"}`;
+    }
+  } else {
+    if (assetBadgeEl) {
+      assetBadgeEl.textContent = "100% CASH";
+      assetBadgeEl.className = "ht-badge badge-neutral";
+    }
+    if (assetPriceEl) assetPriceEl.textContent = "4.50% Yield";
+    if (avgCostEl) avgCostEl.textContent = "Risk-Free";
+    if (unrealizedPill) {
+      unrealizedPill.textContent = "Protected";
+      unrealizedPill.className = "ht-pnl-pill positive";
+    }
+  }
+  if (sqqqQuoteEl) sqqqQuoteEl.textContent = `$${sqqqPx.toFixed(2)}`;
+
+  // Telemetry Card 2: RSI-14 Momentum Gauge (Primary RSI, Secondary Headroom)
+  const rsiValEl = document.getElementById("heroRsiVal");
+  const rsiBadgeEl = document.getElementById("heroRsiBadge");
+  const rsiMeterEl = document.getElementById("heroRsiMeterFill");
+  const rsiHeadroomEl = document.getElementById("heroRsiHeadroomText");
+
+  if (rsiValEl) rsiValEl.textContent = typeof curRsi === "number" ? curRsi.toFixed(1) : "--";
+  if (rsiMeterEl) {
+    const clampedRsi = Math.min(Math.max(curRsi, 0), 100);
+    rsiMeterEl.style.width = `${clampedRsi}%`;
+  }
+  const rsiHeadroom = 75.0 - curRsi;
+  if (rsiHeadroomEl) {
+    if (rsiHeadroom <= 0) {
+      rsiHeadroomEl.textContent = "0.0 pts (TRIM ACTIVE)";
+    } else {
+      rsiHeadroomEl.textContent = `${rsiHeadroom.toFixed(1)} pts`;
+    }
+  }
+  if (rsiBadgeEl) {
+    if (curRsi >= 75) {
+      rsiBadgeEl.textContent = "OVERBOUGHT";
+      rsiBadgeEl.className = "ht-badge badge-bear";
+    } else if (curRsi <= 30) {
+      rsiBadgeEl.textContent = "OVERSOLD";
+      rsiBadgeEl.className = "ht-badge badge-neutral";
+    } else if (curRsi >= 60) {
+      rsiBadgeEl.textContent = "BULL MOMENTUM";
+      rsiBadgeEl.className = "ht-badge badge-bull";
+    } else {
+      rsiBadgeEl.textContent = "NEUTRAL";
+      rsiBadgeEl.className = "ht-badge badge-neutral";
+    }
+  }
+
+  // Telemetry Card 3: Downside Stop Cushion
+  const distSma50Text = document.getElementById("heroDistSma50Text");
+  const cushionPctEl = document.getElementById("heroCushionPct");
+  const exitPriceEl = document.getElementById("heroExitPriceText");
+  const defenseBadgeEl = document.getElementById("heroDefenseBadge");
+
+  const distPts = stats.dist_sma50_pts !== undefined ? stats.dist_sma50_pts : (curNdx - curSma50);
+  const distPct = stats.dist_sma50_pct !== undefined ? stats.dist_sma50_pct : (curSma50 > 0 ? (distPts / curSma50 * 100) : 0);
+
+  if (distSma50Text) {
+    distSma50Text.textContent = `${distPts >= 0 ? "+" : ""}${distPts.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} pts`;
+    distSma50Text.className = `ht-primary-val ${distPts >= 0 ? "text-emerald" : "text-rose"}`;
+  }
+  if (cushionPctEl) {
+    cushionPctEl.textContent = `${distPct >= 0 ? "+" : ""}${distPct.toFixed(2)}%`;
+  }
+  if (exitPriceEl) {
+    exitPriceEl.textContent = curSma50 ? curSma50.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : "--";
+  }
+  if (defenseBadgeEl) {
+    if (distPts >= 500) {
+      defenseBadgeEl.textContent = "WIDE CUSHION";
+      defenseBadgeEl.className = "ht-badge badge-bull";
+    } else if (distPts >= 0) {
+      defenseBadgeEl.textContent = "TIGHT CUSHION";
+      defenseBadgeEl.className = "ht-badge badge-neutral";
+    } else {
+      defenseBadgeEl.textContent = "BELOW STOP";
+      defenseBadgeEl.className = "ht-badge badge-bear";
+    }
+  }
+
+  // 3. Scaled KPI Cards
 
   document.getElementById("totalValue").textContent = formatCurrency(scaledTotal);
   const pnlPill = document.getElementById("pnlPill");
@@ -690,11 +832,6 @@ function renderUI(data) {
   }
 
   // Market & Technicals Cards
-  const latestDaily = (daily && daily.length > 0) ? daily[daily.length - 1] : {};
-  const curNdx = (stats && stats.ndx_price) || latestDaily.ndx_price || 0;
-  const curSma50 = (stats && stats.sma50) || latestDaily.sma50 || 0;
-  const curSma250 = (stats && stats.sma250) || latestDaily.sma250 || 0;
-  const curRsi = (stats && stats.rsi !== undefined) ? stats.rsi : (latestDaily.rsi !== undefined ? latestDaily.rsi : 50.0);
 
   const ndxEl = document.getElementById("ndxLevel");
   if (ndxEl) ndxEl.textContent = curNdx ? curNdx.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "--";
@@ -3151,10 +3288,44 @@ const QUANT_EXPLANATIONS = {
 
 let tooltipHideTimeout = null;
 let tooltipPinned = false;
+let tooltipsEnabled = localStorage.getItem("ndx_terminal_tooltips") !== "false";
 
 function initEducationalTooltips() {
   const popover = document.getElementById("quantTooltipPopover");
   const closeBtn = document.getElementById("qtpCloseBtn");
+  const btnToggle = document.getElementById("btnToggleTooltips");
+  const ttStatus = document.getElementById("ttToggleStatus");
+
+  function applyTooltipState() {
+    document.body.classList.toggle("tooltips-disabled", !tooltipsEnabled);
+    if (btnToggle) {
+      btnToggle.classList.toggle("active", tooltipsEnabled);
+      btnToggle.classList.toggle("disabled", !tooltipsEnabled);
+    }
+    if (ttStatus) {
+      ttStatus.textContent = tooltipsEnabled ? "ON" : "OFF";
+    }
+    if (!tooltipsEnabled && popover) {
+      popover.style.display = "none";
+      tooltipPinned = false;
+    }
+  }
+
+  applyTooltipState();
+
+  if (btnToggle) {
+    btnToggle.addEventListener("click", () => {
+      tooltipsEnabled = !tooltipsEnabled;
+      localStorage.setItem("ndx_terminal_tooltips", tooltipsEnabled ? "true" : "false");
+      applyTooltipState();
+      if (!tooltipsEnabled) {
+        showToast("Educational tooltips hidden", "fa-solid fa-eye-slash text-muted");
+      } else {
+        showToast("Educational tooltips enabled", "fa-solid fa-graduation-cap text-cyan");
+      }
+    });
+  }
+
   if (!popover) return;
 
   if (closeBtn) {
@@ -3175,6 +3346,7 @@ function initEducationalTooltips() {
 
   // Delegated mouseover
   document.addEventListener("mouseover", (e) => {
+    if (!tooltipsEnabled) return;
     const trigger = e.target.closest("[data-help]");
     if (!trigger) return;
     const key = trigger.getAttribute("data-help");
@@ -3185,6 +3357,7 @@ function initEducationalTooltips() {
 
   // Delegated mouseout
   document.addEventListener("mouseout", (e) => {
+    if (!tooltipsEnabled) return;
     const trigger = e.target.closest("[data-help]");
     if (!trigger) return;
     if (tooltipPinned) return;
@@ -3195,6 +3368,7 @@ function initEducationalTooltips() {
 
   // Delegated click / tap
   document.addEventListener("click", (e) => {
+    if (!tooltipsEnabled) return;
     const trigger = e.target.closest("[data-help]");
     if (trigger) {
       const key = trigger.getAttribute("data-help");

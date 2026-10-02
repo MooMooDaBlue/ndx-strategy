@@ -64,6 +64,11 @@
           <span>Quant Lab</span>
         </button>
 
+        <button class="btn-tooltip-toggle active" id="btnToggleTooltips" title="Toggle Educational Quant Tooltips (Click to enable/disable explanations)">
+          <i class="fa-solid fa-graduation-cap"></i>
+          <span>Tips: <strong id="ttToggleStatus">ON</strong></span>
+        </button>
+
         <button class="btn-refresh" id="btnRefresh" title="Force Refresh Data">
           <i class="fa-solid fa-arrows-rotate" id="refreshIcon"></i>
           <span>Sync</span>
@@ -84,23 +89,87 @@
     <!-- Regime / Signal Banner -->
     <section class="regime-hero-banner" id="regimeBanner">
       <div class="regime-left">
-        <div class="regime-badge" id="regimeBadge">
-          <i class="fa-solid fa-shield-halved" id="regimeIcon"></i>
-          <span id="regimeBadgeText">LOADING POSITION...</span>
+        <div class="regime-status-row">
+          <div class="regime-badge" id="regimeBadge">
+            <i class="fa-solid fa-shield-halved" id="regimeIcon"></i>
+            <span id="regimeBadgeText">LOADING POSITION...</span>
+          </div>
+          <div class="regime-sub-badge" id="regimeSubBadge">
+            <span class="regime-beacon-dot"></span>
+            <span id="regimeBeaconText">Systematic Engine Active</span>
+          </div>
         </div>
         <div class="regime-title" id="regimeHeadline">Scanning Market Data...</div>
         <div class="regime-desc" id="regimeReason">Calculating signals based on latest close prices.</div>
-      </div>
-      <div class="regime-right">
-        <div class="safety-indicator">
-          <div class="safety-label">DISTANCE TO SMA50 EXIT LINE</div>
-          <div class="safety-value" id="distSma50Text">--</div>
-          <div class="safety-sub" id="distSma50Sub">Buffer safety margin</div>
+
+        <!-- Quick Telemetry Chips Row -->
+        <div class="regime-chips-row">
+          <div class="regime-chip" id="chipHoldings">
+            <i class="fa-solid fa-coins text-cyan"></i>
+            <span><strong>Holdings:</strong> <span id="heroHoldingsText">-- shares</span></span>
+          </div>
+          <div class="regime-chip" id="chipValuation">
+            <i class="fa-solid fa-wallet text-emerald"></i>
+            <span><strong>Valuation:</strong> <span id="heroValuationText">$--</span></span>
+          </div>
+          <div class="regime-chip" id="chipStopLine">
+            <i class="fa-solid fa-shield-halved text-purple"></i>
+            <span><strong>SMA50 Floor:</strong> <span id="heroSma50Text">--</span></span>
+          </div>
         </div>
-        <div class="safety-indicator">
-          <div class="safety-label">MOMENTUM HEADROOM (RSI 75)</div>
-          <div class="safety-value" id="distRsiText">--</div>
-          <div class="safety-sub">Remaining before trim</div>
+      </div>
+
+      <div class="regime-right">
+        <!-- Telemetry Card 1: Active Asset Price (TQQQ / SQQQ) -->
+        <div class="hero-telemetry-card" id="telemetryAssetCard">
+          <div class="ht-header">
+            <span class="ht-label">ACTIVE ASSET PRICE</span>
+            <span class="ht-badge badge-bull" id="heroAssetBadge">TQQQ 3× BULL</span>
+          </div>
+          <div class="ht-primary-val" id="heroAssetPrice">$--</div>
+          <div class="ht-sub-val" id="heroAssetSub">
+            <span>Avg Cost: <strong id="heroAvgCost">$--</strong></span>
+            <span class="ht-pnl-pill positive" id="heroUnrealizedPill">--%</span>
+          </div>
+          <div class="ht-secondary-quote" id="heroSecondaryQuote">
+            <span>SQQQ (Inverse): <strong id="heroSqqqPrice">$--</strong></span>
+          </div>
+        </div>
+
+        <!-- Telemetry Card 2: RSI-14 Momentum Gauge (RSI as Primary, Headroom as Secondary) -->
+        <div class="hero-telemetry-card" id="telemetryRsiCard" data-help="rsi">
+          <div class="ht-header">
+            <span class="ht-label">RSI-14 MOMENTUM <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
+            <span class="ht-badge badge-neutral" id="heroRsiBadge">NORMAL</span>
+          </div>
+          <div class="ht-primary-val" id="heroRsiVal">--</div>
+          
+          <!-- Visual RSI progress track with markers -->
+          <div class="rsi-meter-track" title="Momentum Gauge: 30 Oversold | 50 Neutral | 75 Overbought Trim">
+            <div class="rsi-meter-fill" id="heroRsiMeterFill" style="width: 50%;"></div>
+            <span class="rsi-marker marker-30">30</span>
+            <span class="rsi-marker marker-50">50</span>
+            <span class="rsi-marker marker-75">75</span>
+          </div>
+
+          <div class="ht-sub-val" id="heroRsiSub">
+            <span>Headroom: <strong id="heroRsiHeadroomText">-- pts</strong> to Trim (75.0)</span>
+          </div>
+        </div>
+
+        <!-- Telemetry Card 3: Downside Stop Cushion -->
+        <div class="hero-telemetry-card" id="telemetryDefenseCard" data-help="sma50">
+          <div class="ht-header">
+            <span class="ht-label">DOWNSIDE STOP CUSHION <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
+            <span class="ht-badge badge-bull" id="heroDefenseBadge">SAFE BUFFER</span>
+          </div>
+          <div class="ht-primary-val text-emerald" id="heroDistSma50Text">-- pts</div>
+          <div class="ht-sub-val" id="heroDistSma50Pct">
+            <span>Cushion: <strong id="heroCushionPct">--%</strong> above SMA50</span>
+          </div>
+          <div class="ht-secondary-quote" id="heroDefenseSub">
+            <span>Exit Trigger if NDX &lt; <strong id="heroExitPriceText">--</strong></span>
+          </div>
         </div>
       </div>
     </section>

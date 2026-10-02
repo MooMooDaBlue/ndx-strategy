@@ -63,3 +63,42 @@ Current Status as of 2026-10-01:
 2026-10-02 17:42:14,313 [INFO] Current Prices — TQQQ: $81.01 | SQQQ: $33.12
 2026-10-02 17:42:14,313 [INFO] Portfolio loaded: TQQQ_100 | Value: $459,008.61
 2026-10-02 17:42:14,313 [INFO]   Already ran today (2026-10-02) — skipping duplicate run.
+2026-10-02 17:51:02,678 [INFO] ============================================================
+2026-10-02 17:51:02,678 [INFO] NDX SMA + RSI Strategy — Daily Run
+2026-10-02 17:51:02,678 [INFO] Run time: 2026-10-02 17:51:02
+2026-10-02 17:51:02,678 [INFO] ============================================================
+2026-10-02 17:51:02,678 [INFO] Fetching data for ^NDX...
+2026-10-02 17:51:03,085 [INFO]   ^NDX: 501 bars fetched, latest close: 30807.93
+2026-10-02 17:51:03,085 [INFO] Fetching data for TQQQ...
+2026-10-02 17:51:03,252 [INFO]   TQQQ: 5 bars fetched, latest close: 81.01
+2026-10-02 17:51:03,252 [INFO] Fetching data for SQQQ...
+2026-10-02 17:51:03,411 [INFO]   SQQQ: 5 bars fetched, latest close: 33.12
+2026-10-02 17:51:03,411 [INFO] Current Prices — TQQQ: $81.01 | SQQQ: $33.12
+2026-10-02 17:51:03,411 [INFO] Portfolio loaded: TQQQ_100 | Value: $459,008.61
+2026-10-02 17:51:03,411 [INFO]   Already ran today (2026-10-02) — skipping duplicate run.
+2026-10-02 17:52:30,525 [INFO] ============================================================
+2026-10-02 17:52:30,526 [INFO] NDX SMA + RSI Strategy — Daily Run
+2026-10-02 17:52:30,526 [INFO] Run time: 2026-10-02 17:52:30
+2026-10-02 17:52:30,526 [INFO] ============================================================
+2026-10-02 17:52:30,526 [INFO] Fetching data for ^NDX...
+2026-10-02 17:52:30,909 [INFO]   ^NDX: 501 bars fetched, latest close: 30807.93
+2026-10-02 17:52:30,909 [INFO] Fetching data for TQQQ...
+2026-10-02 17:52:31,055 [INFO]   TQQQ: 5 bars fetched, latest close: 81.01
+2026-10-02 17:52:31,056 [INFO] Fetching data for SQQQ...
+2026-10-02 17:52:31,202 [INFO]   SQQQ: 5 bars fetched, latest close: 33.12
+2026-10-02 17:52:31,202 [INFO] Current Prices — TQQQ: $81.01 | SQQQ: $33.12
+2026-10-02 17:52:31,202 [INFO] Portfolio loaded: TQQQ_100 | Value: $459,008.61
+2026-10-02 17:52:31,202 [INFO]   Already ran today (2026-10-02) — skipping duplicate run.
+2026-10-02 17:53:33,950 [INFO] ============================================================
+2026-10-02 17:53:33,950 [INFO] NDX SMA + RSI Strategy — Daily Run
+2026-10-02 17:53:33,951 [INFO] Run time: 2026-10-02 17:53:33
+2026-10-02 17:53:33,951 [INFO] ============================================================
+2026-10-02 17:53:33,951 [INFO] Fetching data for ^NDX...
+2026-10-02 17:53:34,333 [INFO]   ^NDX: 501 bars fetched, latest close: 30807.93
+2026-10-02 17:53:34,333 [INFO] Fetching data for TQQQ...
+2026-10-02 17:53:34,481 [INFO]   TQQQ: 5 bars fetched, latest close: 81.01
+2026-10-02 17:53:34,481 [INFO] Fetching data for SQQQ...
+2026-10-02 17:53:34,627 [INFO]   SQQQ: 5 bars fetched, latest close: 33.12
+2026-10-02 17:53:34,627 [INFO] Current Prices — TQQQ: $81.01 | SQQQ: $33.12
+2026-10-02 17:53:34,627 [INFO] Portfolio loaded: TQQQ_100 | Value: $459,008.61
+2026-10-02 17:53:34,627 [INFO]   Already ran today (2026-10-02) — skipping duplicate run.
