@@ -1895,33 +1895,64 @@ body {
 }
 
 /* Trade View Switcher, CSV Export & Round-Trip Inspector */
+.table-panel .panel-header {
+  flex-wrap: wrap;
+  gap: 14px;
+}
 .trade-view-switcher {
   display: flex;
-  background: rgba(11, 14, 23, 0.6);
+  background: rgba(11, 14, 23, 0.7);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: 9px;
   padding: 3px;
   gap: 4px;
+  flex-shrink: 0;
 }
 .tview-btn {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  padding: 6px 12px;
-  border-radius: 6px;
+  padding: 6px 14px;
+  border-radius: 7px;
   font-family: var(--font-heading);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  transition: all 0.2s;
+  gap: 8px;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+.tview-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.04);
 }
 .tview-btn.active {
   background: var(--bg-card-elevated);
   color: var(--accent-cyan);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+.tview-badge {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-dim);
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  transition: all 0.2s ease;
+}
+.tview-btn:hover .tview-badge {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-main);
+}
+.tview-btn.active .tview-badge {
+  background: rgba(0, 242, 254, 0.18);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(0, 242, 254, 0.3);
 }
 .btn-export-csv {
   display: inline-flex;

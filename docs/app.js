@@ -489,6 +489,25 @@ function initEventListeners() {
   const searchInput = document.getElementById("tradeSearchInput");
   if (searchInput) searchInput.addEventListener("input", applyTradeFilters);
 
+  // Trade Table View Switcher (Completed Cycles vs Raw Order Fills)
+  document.querySelectorAll(".tview-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const view = btn.getAttribute("data-view");
+      if (view) {
+        currentTradeView = view;
+        document.querySelectorAll(".tview-btn").forEach(b => b.classList.toggle("active", b.getAttribute("data-view") === view));
+        updateUrlParams();
+        applyTradeFilters();
+      }
+    });
+  });
+
+  // Trade Table CSV Export Button
+  const btnExportCsv = document.getElementById("btnExportCsv");
+  if (btnExportCsv) {
+    btnExportCsv.addEventListener("click", exportCurrentTradeData);
+  }
+
   // Copy log button
   const copyBtn = document.getElementById("btnCopyLog");
   if (copyBtn) {
