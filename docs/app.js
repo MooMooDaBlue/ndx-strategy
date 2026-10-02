@@ -25,7 +25,7 @@ let autoRefreshTimer = null;
 
 // Custom Date Range & Strategy Sandbox State
 let customStartDate = "2015-01-01";
-let customEndDate = "2026-03-30";
+let customEndDate = "2026-10-01";
 let sandboxCustomModelResult = null;
 let sbPreviewChartInstance = null;
 
@@ -169,6 +169,45 @@ function initEventListeners() {
     chkCompare.addEventListener("change", (e) => {
       overlayBothModels = e.target.checked;
       renderChart();
+    });
+  }
+
+  // Capital Simulator Bar Preset Buttons ($5K, $10K, $25K, $50K, $100K)
+  document.querySelectorAll(".sim-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const amt = parseFloat(btn.getAttribute("data-amt"));
+      if (amt && amt > 0) {
+        simulatedCapital = amt;
+        const inp = document.getElementById("simCustomCapital");
+        if (inp) inp.value = amt;
+        document.querySelectorAll(".sim-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        updateUrlParams();
+        if (cachedData) {
+          renderUI(cachedData);
+          renderChart();
+          showToast(`Simulated Capital: $${amt.toLocaleString()}`);
+        }
+      }
+    });
+  });
+
+  // Capital Simulator Custom Input Field
+  const simCustomInp = document.getElementById("simCustomCapital");
+  if (simCustomInp) {
+    simCustomInp.addEventListener("input", (e) => {
+      const amt = parseFloat(e.target.value);
+      if (!isNaN(amt) && amt > 0) {
+        simulatedCapital = amt;
+        document.querySelectorAll(".sim-btn").forEach(b => {
+          b.classList.toggle("active", parseFloat(b.getAttribute("data-amt")) === amt);
+        });
+        updateUrlParams();
+        if (cachedData) {
+          renderUI(cachedData);
+          renderChart();
+        }
+      }
     });
   }
 
@@ -481,9 +520,28 @@ async function fetchDashboardData(isBackground = false) {
       endpoint = "./data.json";
       res = await fetch(endpoint + "?_t=" + Date.now());
     }
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const data = await res.json();
     cachedData = data;
+
+    // Dynamically ensure date pickers support latest session data (e.g. 2026-10-01)
+    const allDaily = (data.daily_summary) || (data.models && data.models.symmetric_atr && data.models.symmetric_atr.daily_summary) || [];
+    if (allDaily.length > 0) {
+      const latestDate = allDaily[allDaily.length - 1].date;
+      ["customStartDate", "customEndDate", "sbStartDate", "sbEndDate"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.max = latestDate;
+      });
+      const elCustomEnd = document.getElementById("customEndDate");
+      if (elCustomEnd && (!elCustomEnd.value || elCustomEnd.value === "2026-03-30")) {
+        elCustomEnd.value = latestDate;
+        customEndDate = latestDate;
+      }
+      const elSbEnd = document.getElementById("sbEndDate");
+      if (elSbEnd && (!elSbEnd.value || elSbEnd.value === "2026-03-30")) {
+        elSbEnd.value = latestDate;
+      }
+    }
+
     renderUI(data);
     renderChart();
   } catch (err) {
@@ -672,7 +730,7 @@ function renderQuantMetrics(data) {
     windowTitle = `2020 COVID Flash Crash (253 Sessions)`;
   } else if (currentTimeframe === "CUSTOM") {
     const start = customStartDate || "2010-02-11";
-    const end = customEndDate || "2026-03-30";
+    const end = customEndDate || "2026-10-01";
     daily = daily.filter(r => r.date >= start && r.date <= end);
     windowTitle = `Custom Window: ${start} to ${end} (${daily.length} Sessions)`;
   }
@@ -765,39 +823,92 @@ function renderQuantMetrics(data) {
   const avgLossPct = losses.length > 0 ? (losses.reduce((acc, c) => acc + c.pnlPct, 0) / losses.length) : 0;
   const payoffRatio = Math.abs(avgLossPct) > 0 ? (avgWinPct / Math.abs(avgLossPct)) : 0;
 
-  // Update DOM Elements
+/**
+ * Returns dynamic color class for metric value matching tooltip legend ratings:
+ * - Red ('text-rose'): Subpar / High Drawdown / Trailing
+ * - Amber ('text-amber'): Medium / Solid / Benchmark
+ * - Emerald ('text-emerald'): Strong / Institutional Elite / Top 1%
+ */
+function getMetricRatingClass(metricKey, val) {
+  switch (metricKey) {
+    case "sharpe":
+      return val >= 1.0 ? "text-emerald" : (val >= 0.5 ? "text-amber" : "text-rose");
+    case "sortino":
+      return val >= 1.0 ? "text-emerald" : (val >= 0.6 ? "text-amber" : "text-rose");
+    case "calmar":
+      return val >= 0.7 ? "text-emerald" : (val >= 0.3 ? "text-amber" : "text-rose");
+    case "cagr":
+      return val >= 0.20 ? "text-emerald" : (val >= 0.12 ? "text-amber" : "text-rose");
+    case "profit_factor":
+      return val >= 1.6 ? "text-emerald" : (val >= 1.2 ? "text-amber" : "text-rose");
+    case "win_rate":
+      return val >= 50.0 ? "text-emerald" : (val >= 40.0 ? "text-amber" : "text-rose");
+    case "payoff":
+      return val >= 2.0 ? "text-emerald" : (val >= 1.5 ? "text-amber" : "text-rose");
+    case "max_dd_duration":
+      return val <= 300 ? "text-emerald" : (val <= 600 ? "text-amber" : "text-rose");
+    default:
+      return "text-cyan";
+  }
+}
+
+  // Update DOM Elements & dynamic rating color classes
   const elSharpe = document.getElementById("qmSharpe");
-  if (elSharpe) elSharpe.textContent = annSharpe.toFixed(2);
+  if (elSharpe) {
+    elSharpe.textContent = annSharpe.toFixed(2);
+    elSharpe.className = `qm-value font-mono ${getMetricRatingClass("sharpe", annSharpe)}`;
+  }
 
   const elSortino = document.getElementById("qmSortino");
-  if (elSortino) elSortino.textContent = annSortino.toFixed(2);
+  if (elSortino) {
+    elSortino.textContent = annSortino.toFixed(2);
+    elSortino.className = `qm-value font-mono ${getMetricRatingClass("sortino", annSortino)}`;
+  }
 
   const elCalmar = document.getElementById("qmCalmar");
-  if (elCalmar) elCalmar.textContent = calmar.toFixed(2);
+  if (elCalmar) {
+    elCalmar.textContent = calmar.toFixed(2);
+    elCalmar.className = `qm-value font-mono ${getMetricRatingClass("calmar", calmar)}`;
+  }
 
   const elCagr = document.getElementById("qmCagr");
-  if (elCagr) elCagr.textContent = `${cagr >= 0 ? '+' : ''}${(cagr * 100).toFixed(1)}%`;
+  if (elCagr) {
+    elCagr.textContent = `${cagr >= 0 ? '+' : ''}${(cagr * 100).toFixed(1)}%`;
+    elCagr.className = `qm-value font-mono ${getMetricRatingClass("cagr", cagr)}`;
+  }
 
   const elPF = document.getElementById("qmProfitFactor");
-  if (elPF) elPF.textContent = `${profitFactor.toFixed(2)}×`;
+  if (elPF) {
+    elPF.textContent = `${profitFactor.toFixed(2)}×`;
+    elPF.className = `qm-value font-mono ${getMetricRatingClass("profit_factor", profitFactor)}`;
+  }
 
   const elPFSub = document.getElementById("qmProfitFactorSub");
   if (elPFSub) elPFSub.textContent = `$${(grossProfit / 1000).toFixed(0)}k Win / $${(grossLoss / 1000).toFixed(0)}k Loss`;
 
   const elWinRate = document.getElementById("qmWinRate");
-  if (elWinRate) elWinRate.textContent = `${winRate.toFixed(1)}%`;
+  if (elWinRate) {
+    elWinRate.textContent = `${winRate.toFixed(1)}%`;
+    elWinRate.className = `qm-value font-mono ${getMetricRatingClass("win_rate", winRate)}`;
+  }
 
   const elWinCount = document.getElementById("qmWinLossCount");
   if (elWinCount) elWinCount.textContent = `${wins.length} Wins / ${losses.length} Losses`;
 
   const elPayoff = document.getElementById("qmPayoffRatio");
-  if (elPayoff) elPayoff.textContent = `${payoffRatio.toFixed(2)}×`;
+  if (elPayoff) {
+    elPayoff.textContent = `${payoffRatio.toFixed(2)}×`;
+    elPayoff.className = `qm-value font-mono ${getMetricRatingClass("payoff", payoffRatio)}`;
+  }
 
   const elPayoffSub = document.getElementById("qmPayoffSub");
   if (elPayoffSub) elPayoffSub.textContent = `+${avgWinPct.toFixed(1)}% / ${avgLossPct.toFixed(1)}%`;
 
   const elMaxDur = document.getElementById("qmMaxDdDuration");
-  if (elMaxDur) elMaxDur.textContent = `${maxDurationDays} days`;
+  if (elMaxDur) {
+    elMaxDur.textContent = `${maxDurationDays} days`;
+    elMaxDur.className = `qm-value font-mono ${getMetricRatingClass("max_dd_duration", maxDurationDays)}`;
+  }
 }
 
 /* ==========================================================================
@@ -1138,7 +1249,7 @@ function renderChart() {
     if (otherRecords) otherRecords = otherRecords.filter(r => r.date >= "2020-01-01" && r.date <= "2020-12-31");
   } else if (currentTimeframe === "CUSTOM") {
     const start = customStartDate || "2010-02-11";
-    const end = customEndDate || "2026-03-30";
+    const end = customEndDate || "2026-10-01";
     records = records.filter(r => r.date >= start && r.date <= end);
     if (otherRecords) otherRecords = otherRecords.filter(r => r.date >= start && r.date <= end);
   }
@@ -1155,7 +1266,7 @@ function renderChart() {
     else if (currentTimeframe === "2020") sbRecs = sbRecs.filter(r => r.date >= "2020-01-01" && r.date <= "2020-12-31");
     else if (currentTimeframe === "CUSTOM") {
       const start = customStartDate || "2010-02-11";
-      const end = customEndDate || "2026-03-30";
+      const end = customEndDate || "2026-10-01";
       sbRecs = sbRecs.filter(r => r.date >= start && r.date <= end);
     }
     plotSbRecords = sbRecs;
@@ -2189,7 +2300,7 @@ function runClientSideSimulation() {
   const dcaAmt = isDcaActive ? dcaAmtInp : 0;
 
   const startDate = document.getElementById("sbStartDate").value || "2010-02-11";
-  const endDate = document.getElementById("sbEndDate").value || "2026-03-30";
+  const endDate = document.getElementById("sbEndDate").value || "2026-10-01";
   const smaPeriod = parseInt(document.getElementById("sbSmaPeriod").value, 10) || 50;
   const bufferType = document.getElementById("sbBufferType").value;
   const rsiTrim = document.getElementById("sbRsiTrim").value;
@@ -2447,7 +2558,10 @@ function runClientSideSimulation() {
 
   // 8. Update Scorecard DOM
   const elResVal = document.getElementById("sbResValue");
-  if (elResVal) elResVal.textContent = formatCurrency(finalVal);
+  if (elResVal) {
+    elResVal.textContent = formatCurrency(finalVal);
+    elResVal.className = `sb-metric-val font-mono ${finalVal >= totalInvested * 5 ? 'text-emerald' : (finalVal >= totalInvested * 2 ? 'text-amber' : 'text-rose')}`;
+  }
   const elBenchVal = document.getElementById("sbBenchValue");
   if (elBenchVal) elBenchVal.textContent = `Benchmark: ${formatCurrency(benchFinal)}`;
 
@@ -2463,6 +2577,7 @@ function runClientSideSimulation() {
   const elResRet = document.getElementById("sbResReturn");
   if (elResRet) {
     elResRet.textContent = `${netProfitDollar >= 0 ? '+' : ''}${formatCurrency(netProfitDollar)} (${roicPct >= 0 ? '+' : ''}${roicPct.toFixed(1)}%)`;
+    elResRet.className = `sb-metric-val font-mono ${roicPct >= 500 ? 'text-emerald' : (roicPct >= 100 ? 'text-amber' : 'text-rose')}`;
   }
   const elBenchRet = document.getElementById("sbBenchReturn");
   if (elBenchRet) {
@@ -2474,27 +2589,42 @@ function runClientSideSimulation() {
     elCagrLabel.textContent = `ANNUALIZED RETURN (${isDcaActive ? 'IRR / MWR' : 'CAGR'})`;
   }
   const elResCagr = document.getElementById("sbResCagr");
-  if (elResCagr) elResCagr.textContent = `${cagr >= 0 ? '+' : ''}${cagr.toFixed(1)}%`;
+  if (elResCagr) {
+    elResCagr.textContent = `${cagr >= 0 ? '+' : ''}${cagr.toFixed(1)}%`;
+    elResCagr.className = `sb-metric-val font-mono ${getMetricRatingClass("cagr", cagr / 100)}`;
+  }
   const elBenchCagr = document.getElementById("sbBenchCagr");
   if (elBenchCagr) elBenchCagr.textContent = `Benchmark: ${benchCagr >= 0 ? '+' : ''}${benchCagr.toFixed(1)}%`;
 
   const elResSharpe = document.getElementById("sbResSharpe");
-  if (elResSharpe) elResSharpe.textContent = sharpe.toFixed(2);
+  if (elResSharpe) {
+    elResSharpe.textContent = sharpe.toFixed(2);
+    elResSharpe.className = `sb-metric-val font-mono ${getMetricRatingClass("sharpe", sharpe)}`;
+  }
   const elBenchSharpe = document.getElementById("sbBenchSharpe");
   if (elBenchSharpe) elBenchSharpe.textContent = `Benchmark: ${benchSharpe.toFixed(2)}`;
 
   const elResMaxDd = document.getElementById("sbResMaxDd");
-  if (elResMaxDd) elResMaxDd.textContent = `${maxDd.toFixed(1)}%`;
+  if (elResMaxDd) {
+    elResMaxDd.textContent = `${maxDd.toFixed(1)}%`;
+    elResMaxDd.className = `sb-metric-val font-mono ${maxDd >= -40 ? 'text-emerald' : (maxDd >= -65 ? 'text-amber' : 'text-rose')}`;
+  }
   const elBenchMaxDd = document.getElementById("sbBenchMaxDd");
   if (elBenchMaxDd) elBenchMaxDd.textContent = `Benchmark: ${benchMaxDd.toFixed(1)}%`;
 
   const elResMultiplier = document.getElementById("sbResMultiplier");
-  if (elResMultiplier) elResMultiplier.textContent = `${wealthMultiplier.toFixed(1)}×`;
+  if (elResMultiplier) {
+    elResMultiplier.textContent = `${wealthMultiplier.toFixed(1)}×`;
+    elResMultiplier.className = `sb-metric-val font-mono ${wealthMultiplier >= 10 ? 'text-emerald' : (wealthMultiplier >= 3 ? 'text-amber' : 'text-rose')}`;
+  }
   const elBenchMultiplier = document.getElementById("sbBenchMultiplier");
   if (elBenchMultiplier) elBenchMultiplier.textContent = `Benchmark: ${benchMultiplier.toFixed(1)}×`;
 
   const elResWin = document.getElementById("sbResWinRate");
-  if (elResWin) elResWin.textContent = `${winRate.toFixed(1)}% (${wins.length}W / ${cycles.length - wins.length}L)`;
+  if (elResWin) {
+    elResWin.textContent = `${winRate.toFixed(1)}% (${wins.length}W / ${cycles.length - wins.length}L)`;
+    elResWin.className = `sb-metric-val font-mono ${getMetricRatingClass("win_rate", winRate)}`;
+  }
   const elBenchWin = document.getElementById("sbBenchWinRate");
   if (elBenchWin) elBenchWin.textContent = `Benchmark: ${benchWinRate.toFixed(1)}% (${benchCycleCount} Cycles)`;
 
@@ -2652,6 +2782,20 @@ function exportSandboxCsv() {
    13. EDUCATIONAL QUANT EXPLANATIONS & INTERACTIVE TOOLTIP SYSTEM
    ========================================================================== */
 const QUANT_EXPLANATIONS = {
+  // Quant Lab Parameters
+  sb_capital: {
+    title: "Starting Capital ($)",
+    category: "PORTFOLIO SEED CAPITAL",
+    icon: "fa-solid fa-coins text-cyan",
+    summary: "The initial lump-sum seed money allocated to the backtest on day one (e.g. $10,000 in Feb 2010).",
+    analogy: "The foundation of your skyscraper: all compounding percentage gains multiply directly from this initial base.",
+    scores: [
+      { text: "$5k – $10k", label: "Retail Starter", color: "rose" },
+      { text: "$25k – $50k", label: "Established Portfolio", color: "amber" },
+      { text: "≥ $100k", label: "Institutional Scale", color: "emerald" }
+    ],
+    strategyTakeaway: "Starting with $10,000 in 2010 grew to over $446,000 without adding another penny—or over $2.4M with bi-weekly DCA additions."
+  },
   dca: {
     title: "Dollar-Cost Averaging (DCA Plan)",
     category: "WEALTH ACCUMULATION STRATEGY",
@@ -2659,22 +2803,117 @@ const QUANT_EXPLANATIONS = {
     summary: "Investing a fixed dollar amount into the market at disciplined, recurring intervals (e.g. $500 from every paycheck) regardless of whether stock prices are surging or crashing.",
     analogy: "Like shopping for groceries every week: when prices go on sale, your fixed budget buys more food for the same dollars. When prices spike, you automatically buy fewer units. You never have to predict what the market will do next week.",
     scores: [
-      { text: "Lump Sum", label: "Timing Sensitive (High Variance)", color: "cyan" },
-      { text: "Bi-Weekly DCA", label: "Payroll Matched (Zero Stress)", color: "emerald" },
-      { text: "DCA + Quant", label: "Dry-Powder Supercharger", color: "purple" }
+      { text: "Lump Sum Only", label: "Timing Sensitive (High Variance)", color: "rose" },
+      { text: "Bi-Weekly DCA", label: "Payroll Matched (Zero Stress)", color: "amber" },
+      { text: "DCA + Quant", label: "Dry-Powder Supercharger", color: "emerald" }
     ],
     strategyTakeaway: "In traditional Buy & Hold, DCA during bear markets suffers relentless leverage decay. With our Quant Strategy, bear-market DCA deposits accumulate safely as cash/Treasury dry powder—deploying in bulk the moment the bull market resumes!"
   },
+  sb_date_window: {
+    title: "Simulation Date Window",
+    category: "HISTORICAL ERA AUDIT",
+    icon: "fa-regular fa-calendar-days text-cyan",
+    summary: "Restricts the backtest execution to a specific historical era (e.g. only test the 2022 bear market or the 2020 COVID shock).",
+    analogy: "A flight simulator: test how your custom rules handle hurricane turbulence in isolation before committing real savings.",
+    scores: [
+      { text: "< 1 Year", label: "Micro Snapshot (High Noise)", color: "rose" },
+      { text: "3 – 5 Years", label: "Full Market Cycle", color: "amber" },
+      { text: "16 Years", label: "Full Historical Audit (2010–2026)", color: "emerald" }
+    ],
+    strategyTakeaway: "Testing across 4,185 sessions guarantees rules are robust across both raging bull runs and catastrophic crashes."
+  },
+
+  // Quant Lab Scorecard Results
+  sb_final_val: {
+    title: "Final Portfolio Value",
+    category: "TOTAL ACCUMULATED WEALTH",
+    icon: "fa-solid fa-vault text-emerald",
+    summary: "The total cash and equity balance in your portfolio at the end of the simulation date window, after compounding and all DCA deposits.",
+    analogy: "The retirement finish line: your accumulated nest egg balance waiting for you at the end of the journey.",
+    scores: [
+      { text: "< 2×", label: "Subpar Growth", color: "rose" },
+      { text: "2× – 5×", label: "Solid Capital Expansion", color: "amber" },
+      { text: "≥ 10×", label: "Decade Wealth Multiplier (10x+)", color: "emerald" }
+    ],
+    strategyTakeaway: "Compounding 3x leverage with disciplined cash preservation turns normal savings into multi-million dollar portfolios."
+  },
+  sb_invested: {
+    title: "Total Invested Principal",
+    category: "OUT-OF-POCKET SAVINGS",
+    icon: "fa-solid fa-hand-holding-dollar text-cyan",
+    summary: "The cumulative out-of-pocket cash you deposited into the strategy: your starting capital plus all recurring DCA additions.",
+    analogy: "The total money you pulled from your paychecks and bank account. Everything in your final balance above this amount is pure free profit.",
+    scores: [
+      { text: "Lump Sum", label: "Single Upfront Deposit", color: "rose" },
+      { text: "Periodic DCA", label: "Disciplined Payroll Savings", color: "amber" },
+      { text: "DCA + Quant", label: "Max Compound Efficiency", color: "emerald" }
+    ],
+    strategyTakeaway: "In our simulation, $219.5k in payroll contributions generated over $2.22M in pure profit—an 11.1x multiplier on your savings."
+  },
+  sb_net_profit: {
+    title: "Net Profit & ROIC",
+    category: "TRUE WEALTH CREATED",
+    icon: "fa-solid fa-money-bill-trend-up text-emerald",
+    summary: "Pure dollar profit generated by the strategy (Final Value minus Total Invested Principal) and Return on Invested Capital percentage.",
+    analogy: "The harvest: how many extra dollars the compounding engine grew for you beyond the seeds you planted.",
+    scores: [
+      { text: "< 100%", label: "Modest Gain (<2x)", color: "rose" },
+      { text: "100% – 500%", label: "Strong Multi-Bag Growth", color: "amber" },
+      { text: "≥ 1,000%", label: "Generational Wealth Alpha (10x+)", color: "emerald" }
+    ],
+    strategyTakeaway: "Over 16 years, our model delivered +1,014% ROIC with bi-weekly DCA, outperforming traditional 60/40 retirement plans by over 800%."
+  },
+  sb_irr: {
+    title: "Annualized Return (IRR / CAGR)",
+    category: "MONEY-WEIGHTED ANNUAL RATE",
+    icon: "fa-solid fa-chart-line-up text-amber",
+    summary: "When DCA is active, computes the exact Internal Rate of Return (money-weighted personal return) via Newton-Raphson. When lump sum, computes CAGR.",
+    analogy: "The true interest rate of your wealth plan: the constant annual yield your money earned taking into account the timing of every deposit.",
+    scores: [
+      { text: "< 12%", label: "Trails Nasdaq-100", color: "rose" },
+      { text: "12% – 20%", label: "Beats Market Benchmark", color: "amber" },
+      { text: "≥ 20%", label: "Top Tier Institutional Rate", color: "emerald" }
+    ],
+    strategyTakeaway: "A +25.1% annualized personal IRR means your wealth doubled approximately every 2.9 years like clockwork."
+  },
+  sb_max_dd: {
+    title: "Maximum Drawdown",
+    category: "WORST-CASE CRASH DEPTH",
+    icon: "fa-solid fa-water-lower text-rose",
+    summary: "The deepest peak-to-trough account decline experienced during the simulation. Measures the maximum pain point you had to endure.",
+    analogy: "The biggest drop on the rollercoaster: how far your portfolio dipped from its highest peak before making a new high.",
+    scores: [
+      { text: "> -65%", label: "Severe Pain (Buy & Hold TQQQ -82%)", color: "rose" },
+      { text: "-40% to -65%", label: "Manageable for 3x Beta", color: "amber" },
+      { text: "< -40%", label: "Superior Crash Defense", color: "emerald" }
+    ],
+    strategyTakeaway: "By exiting to cash during the 2022 bear market, the strategy capped drawdown at -50.8% while unhedged TQQQ plunged -82%."
+  },
+  sb_multiplier: {
+    title: "Wealth Multiplier (ROI)",
+    category: "TOTAL RETURN ON SAVINGS",
+    icon: "fa-solid fa-calculator text-purple",
+    summary: "How many times your total invested capital multiplied: Final Portfolio Value divided by Total Invested Principal.",
+    analogy: "For every $1.00 you deposited from your paycheck, how many dollars did the strategy hand you at the finish line?",
+    scores: [
+      { text: "< 3×", label: "Modest Multiple", color: "rose" },
+      { text: "3× – 8×", label: "Strong Wealth Expansion", color: "amber" },
+      { text: "≥ 10×", label: "10x+ Compounding Engine", color: "emerald" }
+    ],
+    strategyTakeaway: "An 11.1× multiplier turned $219.5k in savings into $2.44M net worth over 16 years."
+  },
+
+  // Main Dashboard Institutional Strip
   sortino: {
     title: "Sortino Ratio",
     category: "RISK-ADJUSTED EFFICIENCY",
     icon: "fa-solid fa-chart-line-up text-emerald",
-    summary: "Measures how much return you get for every unit of BAD risk (falling prices). Unlike the Sharpe ratio, it never penalizes your portfolio for sudden surges upward—only downward crashes.",
-    analogy: "Imagine a teacher who only docks points when you fail an exam, but doesn't punish you when you score 120% with extra credit. Sharpe penalizes both; Sortino only punishes the bad days.",
+    summary: "Measures return generated strictly relative to BAD downside loss risk. Unlike Sharpe, it never penalizes your portfolio for sudden violent surges upward.",
+    analogy: "A teacher who only docks points when you fail an exam, but doesn't punish you when you score 120% with extra credit. Sharpe penalizes both; Sortino only punishes the bad days.",
     scores: [
-      { text: "< 1.0", label: "Subpar", color: "rose" },
-      { text: "1.0 – 1.9", label: "Good Edge", color: "amber" },
-      { text: "≥ 2.0", label: "Institutional Elite", color: "emerald" }
+      { text: "< 0.6", label: "High Downside Bleed", color: "rose" },
+      { text: "0.6 – 0.9", label: "Solid Downside Defense", color: "amber" },
+      { text: "≥ 1.0", label: "Institutional Elite Edge", color: "emerald" }
     ],
     strategyTakeaway: "Our strategy posts a 0.73 Sortino (vs -0.15 for unhedged TQQQ in bear markets), proving its volatility comes primarily from violent bull runs rather than portfolio wipeouts."
   },
@@ -2683,11 +2922,11 @@ const QUANT_EXPLANATIONS = {
     category: "WALL STREET RISK BENCHMARK",
     icon: "fa-solid fa-calculator text-cyan",
     summary: "The universal scorecard of investing. Compares total return against risk-free Treasury yield (4.5%), divided by total volatility (both upswings and downswings).",
-    analogy: "Think of it as miles-per-gallon for financial risk: how much profit do you get per gallon of rollercoaster ride you have to stomach?",
+    analogy: "Miles-per-gallon for financial risk: how much profit do you get per gallon of rollercoaster ride you have to stomach?",
     scores: [
-      { text: "< 1.0", label: "Acceptable for 3x Beta", color: "cyan" },
-      { text: "1.0 – 1.9", label: "Strong Quant Model", color: "emerald" },
-      { text: "≥ 2.0", label: "World-Class Hedge Fund", color: "purple" }
+      { text: "< 0.5", label: "Decaying / High Volatility", color: "rose" },
+      { text: "0.5 – 0.9", label: "Solid for 3x Beta", color: "amber" },
+      { text: "≥ 1.0", label: "Elite Risk-Adjusted Edge", color: "emerald" }
     ],
     strategyTakeaway: "Because TQQQ is 3x leveraged, its total volatility is 3× higher than normal stocks, keeping Sharpe around 0.64 even while delivering a staggering +4,360% total profit."
   },
@@ -2700,7 +2939,7 @@ const QUANT_EXPLANATIONS = {
     scores: [
       { text: "< 0.3", label: "Weak Crisis Protection", color: "rose" },
       { text: "0.3 – 0.7", label: "Solid for 3x Tech", color: "amber" },
-      { text: "≥ 1.0", label: "Extraordinary Defense", color: "emerald" }
+      { text: "≥ 0.7", label: "World-Class Defense", color: "emerald" }
     ],
     strategyTakeaway: "At 0.49 Calmar, this system delivers +25.7% compounded annually while capping worst-ever drawdown at -52% (compared to unhedged TQQQ's brutal -82% collapse)."
   },
@@ -2711,9 +2950,9 @@ const QUANT_EXPLANATIONS = {
     summary: "Compound Annual Growth Rate. The constant annual interest rate that would grow your starting balance into your final balance over the full 16-year timeline.",
     analogy: "If your savings account paid the exact same guaranteed interest rate every single year for 16 years straight, this is that magic interest rate.",
     scores: [
-      { text: "10% – 15%", label: "Matches Nasdaq-100", color: "cyan" },
-      { text: "15% – 20%", label: "Beats S&P & NDX", color: "amber" },
-      { text: "≥ 25%", label: "Top 1% Long-Term Alpha", color: "emerald" }
+      { text: "< 12%", label: "Trailing Nasdaq-100", color: "rose" },
+      { text: "12% – 20%", label: "Beats Market Benchmark", color: "amber" },
+      { text: "≥ 20%", label: "Top 1% Compounding Alpha", color: "emerald" }
     ],
     strategyTakeaway: "+25.7% CAGR turns $10,000 into $446,089.97 over 16 years, outperforming the underlying Nasdaq-100 by more than +2,700%!"
   },
@@ -2724,9 +2963,9 @@ const QUANT_EXPLANATIONS = {
     summary: "Total gross cash profits from all winning trades divided by total gross cash losses from all losing trades.",
     analogy: "For every $1.00 this strategy loses when caught in a false alarm, it takes home $1.70 from winning multi-month rallies.",
     scores: [
-      { text: "< 1.0", label: "Losing Strategy", color: "rose" },
-      { text: "1.2 – 1.5", label: "Viable Trading Edge", color: "amber" },
-      { text: "≥ 1.6", label: "High-Confidence Edge", color: "emerald" }
+      { text: "< 1.2", label: "Fragile / Thin Margin", color: "rose" },
+      { text: "1.2 – 1.6", label: "Healthy Systematic Edge", color: "amber" },
+      { text: "≥ 1.6", label: "Institutional Grade Edge", color: "emerald" }
     ],
     strategyTakeaway: "A 1.70× Profit Factor over 4,185 trading sessions confirms this system has a durable mathematical edge that survived 16 years of bull and bear markets."
   },
@@ -2738,8 +2977,8 @@ const QUANT_EXPLANATIONS = {
     analogy: "In baseball, a batter who hits .475 is a legend. Trend-following algorithms don't need an 80% win rate because winning trades are held for huge runs while losers are cut short.",
     scores: [
       { text: "< 40%", label: "Choppy Performance", color: "rose" },
-      { text: "40% – 50%", label: "Normal for Trend Models", color: "amber" },
-      { text: "≥ 50%", label: "Excellent for Trend Trading", color: "emerald" }
+      { text: "40% – 50%", label: "Standard Trend Model", color: "amber" },
+      { text: "≥ 50%", label: "Exceptional Trend Accuracy", color: "emerald" }
     ],
     strategyTakeaway: "With a 47.5% win rate across 84 cycles, the strategy cuts losing trades quickly (average loss -6.6%) while riding mega-trends (average win +14.6%)."
   },
@@ -2750,9 +2989,9 @@ const QUANT_EXPLANATIONS = {
     summary: "Average percentage gain on winning trades divided by average percentage loss on losing trades.",
     analogy: "When you win, you win $2.20; when you lose, you only lose $1.00. That asymmetry is why you don't need a high win rate to get rich.",
     scores: [
-      { text: "< 1.0", label: "Negative Asymmetry", color: "rose" },
-      { text: "1.5 – 2.0", label: "Solid Risk/Reward", color: "amber" },
-      { text: "≥ 2.0", label: "Asymmetric Gold Standard", color: "emerald" }
+      { text: "< 1.5×", label: "Insufficient Win Size", color: "rose" },
+      { text: "1.5× – 2.0×", label: "Healthy Win Asymmetry", color: "amber" },
+      { text: "≥ 2.0×", label: "Powerful 2:1+ Reward Edge", color: "emerald" }
     ],
     strategyTakeaway: "A 2.20× Payoff Ratio means our winners are more than double the size of our losers, creating massive compound growth over time."
   },
@@ -2763,12 +3002,14 @@ const QUANT_EXPLANATIONS = {
     summary: "The longest number of calendar days the strategy took to climb out of a crash and hit a brand new all-time high portfolio balance.",
     analogy: "If you hike down into a deep canyon during a storm, this is the total time it takes to climb back to the sunny mountain peak.",
     scores: [
-      { text: "< 365 Days", label: "Fast 1-Year Recovery", color: "emerald" },
-      { text: "1 – 3 Years", label: "Typical for Macro Tech", color: "amber" },
-      { text: "> 4 Years", label: "Severe Prolonged Bear", color: "rose" }
+      { text: "> 600 Days", label: "Prolonged Slump (>20 Mos)", color: "rose" },
+      { text: "300 – 600 Days", label: "Moderate Recovery", color: "amber" },
+      { text: "< 300 Days", label: "Rapid High-Water Reclaim", color: "emerald" }
     ],
-    strategyTakeaway: "Our max recovery was ~1,024 days during the 2021–2024 cycle. By contrast, an investor who bought Cisco in 2000 took over 20 years to recover!"
+    strategyTakeaway: "Our max recovery was ~455 days. By contrast, an investor holding unhedged tech in 2000 took over 15 years to break even!"
   },
+
+  // Technical Signals & Moving Averages
   sma50: {
     title: "50-Day Moving Average (Exit Trigger)",
     category: "DYNAMIC TRENDLINE",
@@ -2776,8 +3017,9 @@ const QUANT_EXPLANATIONS = {
     summary: "The average closing price of the Nasdaq-100 over the past 50 trading sessions (~2.5 months).",
     analogy: "Like checking a person's 50-day average speed to see if they are still sprinting or have collapsed into exhaustion.",
     scores: [
-      { text: "Price > SMA50", label: "BULLISH (Hold TQQQ)", color: "emerald" },
-      { text: "Price < SMA50", label: "DEFENSIVE (Exit to Cash)", color: "rose" }
+      { text: "Price < SMA50", label: "DEFENSIVE (Exit to Cash)", color: "rose" },
+      { text: "Price ~ SMA50", label: "Buffer Transition Zone", color: "amber" },
+      { text: "Price > SMA50", label: "BULLISH (Hold TQQQ)", color: "emerald" }
     ],
     strategyTakeaway: "Crossing below the 50-day SMA is the primary trigger that moved the strategy safely to 100% Cash before the 2022 tech crash wiped out normal investors."
   },
@@ -2788,8 +3030,9 @@ const QUANT_EXPLANATIONS = {
     summary: "The average closing price of the Nasdaq-100 over approximately one full calendar year of trading (250 sessions).",
     analogy: "The long-term climate vs daily weather. Tells you whether the market is fundamentally in summer (bull) or winter (bear).",
     scores: [
-      { text: "Price > SMA250", label: "Macro Secular Bull", color: "emerald" },
-      { text: "Price < SMA250", label: "Macro Bear Market", color: "rose" }
+      { text: "Price < SMA250", label: "Macro Bear Market", color: "rose" },
+      { text: "Near SMA250", label: "Regime Inflection", color: "amber" },
+      { text: "Price > SMA250", label: "Macro Secular Bull", color: "emerald" }
     ],
     strategyTakeaway: "Used as a master regime filter. In major bear regimes, the strategy remains safely in cash or interest-bearing yields."
   },
@@ -2800,8 +3043,9 @@ const QUANT_EXPLANATIONS = {
     summary: "A mathematical safety margin below the 50-day moving average calculated using the 14-day Average True Range (volatility).",
     analogy: "Your home thermostat doesn't shut the heater off the instant the room hits 70.0°F—it waits until 69°F so your heater doesn't click on and off every 10 seconds.",
     scores: [
-      { text: "Normal Noise", label: "Buffer Absorbs Drop", color: "cyan" },
-      { text: "Real Crash", label: "Breaks Buffer -> Exit", color: "rose" }
+      { text: "Real Crash", label: "Breaks Buffer -> Exit", color: "rose" },
+      { text: "Market Chop", label: "Transition Testing", color: "amber" },
+      { text: "Normal Noise", label: "Buffer Absorbs Drop", color: "emerald" }
     ],
     strategyTakeaway: "Prevents panic selling during normal 1-day dips, saving tens of thousands in whipsaw fees and false exits."
   },
@@ -2812,9 +3056,9 @@ const QUANT_EXPLANATIONS = {
     summary: "A speedometer measuring the speed and magnitude of recent price moves on a 0 to 100 scale.",
     analogy: "Like a car tachometer. When the needle revs into the redline (above 75), the engine is overheating and needs to shift gears.",
     scores: [
-      { text: "< 30", label: "Oversold (Downtrend)", color: "cyan" },
-      { text: "30 – 74", label: "Healthy Momentum", color: "emerald" },
-      { text: "≥ 75", label: "Overbought (Trim 25% to Cash)", color: "rose" }
+      { text: "< 30", label: "Oversold (Downtrend)", color: "rose" },
+      { text: "30 – 74", label: "Healthy Momentum", color: "amber" },
+      { text: "≥ 75", label: "Overbought (Trim 25% to Cash)", color: "emerald" }
     ],
     strategyTakeaway: "When RSI exceeds 75, our system automatically trims 25% of TQQQ into Cash to bank profits before gravity pulls the market back."
   },
@@ -2825,8 +3069,9 @@ const QUANT_EXPLANATIONS = {
     summary: "The highest peak dollar balance the portfolio has ever attained in its lifetime.",
     analogy: "The highest sea-level mark left on the lighthouse cliff after the biggest high tide.",
     scores: [
-      { text: "At HWM", label: "All-Time High (0% Drawdown)", color: "emerald" },
-      { text: "Below HWM", label: "In Active Drawdown", color: "amber" }
+      { text: "> -20% DD", label: "Deep Drawdown Slump", color: "rose" },
+      { text: "In Drawdown", label: "Climbing Back to Peak", color: "amber" },
+      { text: "At HWM", label: "All-Time High (0% Drawdown)", color: "emerald" }
     ],
     strategyTakeaway: "Drawdown is always calculated as the distance from this peak. New high water marks reset your safety baseline."
   },
@@ -2837,8 +3082,9 @@ const QUANT_EXPLANATIONS = {
     summary: "Exchange Traded Funds designed to multiply daily Nasdaq-100 returns by +300% (TQQQ) or -300% (SQQQ).",
     analogy: "A Formula 1 racecar. Blazingly fast in the straightaways (bull markets), but dangerous in hairpin curves without systematic anti-lock brakes.",
     scores: [
-      { text: "Bull Trend", label: "Hold 100% TQQQ (+3x Boost)", color: "emerald" },
-      { text: "Bear Trend", label: "Hold 100% Cash / Treasury Yield", color: "cyan" }
+      { text: "Unhedged B&H", label: "-82% Crash Risk in Bear", color: "rose" },
+      { text: "Bear Trend", label: "Hold 100% Cash / Treasury Yield", color: "amber" },
+      { text: "Bull Trend", label: "Hold 100% TQQQ (+3x Boost)", color: "emerald" }
     ],
     strategyTakeaway: "Unhedged TQQQ crashed -82% in 2022. By contrast, our systematic rules moved to 100% Cash at the top, growing +66.8% through risk-free interest and bottom-rebuys."
   },
@@ -2849,8 +3095,9 @@ const QUANT_EXPLANATIONS = {
     summary: "The ability of a strategy to generate positive returns or protect capital during catastrophic market crashes when everyone else is losing money.",
     analogy: "Like having a house made of stone when a hurricane blows down all the wooden houses on your block.",
     scores: [
-      { text: "2022 Bear", label: "Strategy +66.8% vs TQQQ -79.7%", color: "emerald" },
-      { text: "2020 Flash", label: "Exited early, rebought bottom", color: "cyan" }
+      { text: "Unhedged Drop", label: "Full Crash Exposure", color: "rose" },
+      { text: "Cash / Treasuries", label: "4.5% Risk-Free Safety", color: "amber" },
+      { text: "Crisis Alpha", label: "Protected Capital + Bottom Buy", color: "emerald" }
     ],
     strategyTakeaway: "By holding 100% Cash during down markets, you avoid the -80% drawdowns that wipe out buy-and-hold investors."
   }
@@ -2938,13 +3185,24 @@ function showQuantTooltip(key, triggerElement) {
   const iconEl = document.getElementById("qtpIcon");
   if (iconEl) iconEl.className = `${item.icon || "fa-solid fa-graduation-cap"} qtp-icon`;
 
+  // Detect which color is active on the hovered card to highlight the matching pill
+  const valEl = triggerElement.querySelector(".qm-value, .sb-metric-val, .val-text") || triggerElement;
+  let activeColor = "";
+  if (valEl.classList.contains("text-emerald")) activeColor = "emerald";
+  else if (valEl.classList.contains("text-amber")) activeColor = "amber";
+  else if (valEl.classList.contains("text-rose")) activeColor = "rose";
+
   const pillsContainer = document.getElementById("qtpScorePills");
   if (pillsContainer) {
-    pillsContainer.innerHTML = (item.scores || []).map(s => `
-      <div class="qtp-pill ${s.color}">
-        <strong>${s.text}</strong> <span>• ${s.label}</span>
-      </div>
-    `).join("");
+    pillsContainer.innerHTML = (item.scores || []).map(s => {
+      const isMatch = (activeColor && s.color === activeColor);
+      return `
+        <div class="qtp-pill ${s.color} ${isMatch ? 'qtp-pill-active' : ''}">
+          <strong>${s.text}</strong> <span>• ${s.label}</span>
+          ${isMatch ? '<i class="fa-solid fa-check" style="margin-left:4px; font-size:10px;"></i>' : ''}
+        </div>
+      `;
+    }).join("");
   }
 
   const takeawayEl = document.getElementById("qtpTakeaway");

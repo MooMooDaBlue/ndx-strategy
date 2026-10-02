@@ -339,12 +339,12 @@
               <div class="range-inputs-group">
                 <div class="range-field">
                   <label for="customStartDate"><i class="fa-regular fa-calendar text-cyan"></i> START DATE</label>
-                  <input type="date" id="customStartDate" min="2010-02-11" max="2026-03-30" value="2015-01-01">
+                  <input type="date" id="customStartDate" min="2010-02-11" max="2026-10-01" value="2015-01-01">
                 </div>
                 <div class="range-separator"><i class="fa-solid fa-arrow-right"></i></div>
                 <div class="range-field">
                   <label for="customEndDate"><i class="fa-regular fa-calendar-check text-emerald"></i> END DATE</label>
-                  <input type="date" id="customEndDate" min="2010-02-11" max="2026-03-30" value="2026-03-30">
+                  <input type="date" id="customEndDate" min="2010-02-11" max="2026-10-01" value="2026-10-01">
                 </div>
                 <button class="btn-range-apply" id="btnApplyCustomRange"><i class="fa-solid fa-play"></i> Apply Window</button>
                 <button class="btn-range-reset" id="btnResetCustomRange" title="Reset to Full 16 Years"><i class="fa-solid fa-rotate-left"></i> Full 16Y</button>
@@ -355,7 +355,7 @@
                 <button type="button" class="range-preset-tag" data-start="2018-01-01" data-end="2018-12-31">2018 Volmageddon & Q4 Bear</button>
                 <button type="button" class="range-preset-tag" data-start="2020-01-01" data-end="2020-12-31">2020 COVID Flash Crash</button>
                 <button type="button" class="range-preset-tag" data-start="2022-01-01" data-end="2022-12-31">2022 Tech Bear (-80% TQQQ)</button>
-                <button type="button" class="range-preset-tag" data-start="2023-01-01" data-end="2026-03-30">2023–2026 AI Megacap Rally</button>
+                <button type="button" class="range-preset-tag" data-start="2023-01-01" data-end="2026-10-01">2023–2026 AI Megacap Rally</button>
               </div>
             </div>
           </div>
@@ -755,7 +755,11 @@
           
           <!-- Parameter 1: Capital -->
           <div class="sandbox-field-group">
-            <label class="sandbox-label">Starting Capital ($)</label>
+            <div class="sandbox-label-row">
+              <label class="sandbox-label" data-help="sb_capital" style="cursor: pointer;">
+                Starting Capital ($) <i class="fa-regular fa-circle-question qm-help-icon" title="Initial starting cash allocated to backtest"></i>
+              </label>
+            </div>
             <div class="sandbox-input-row">
               <span class="sandbox-curr">$</span>
               <input type="number" id="sbCapital" value="10000" min="100" max="10000000" step="1000">
@@ -803,15 +807,19 @@
 
           <!-- Parameter 3: Date Window -->
           <div class="sandbox-field-group">
-            <label class="sandbox-label">Simulation Date Window</label>
+            <div class="sandbox-label-row">
+              <label class="sandbox-label" data-help="sb_date_window" style="cursor: pointer;">
+                Simulation Date Window <i class="fa-regular fa-circle-question qm-help-icon" title="Select custom historical date range"></i>
+              </label>
+            </div>
             <div class="sandbox-dates-grid">
               <div>
                 <span class="sb-sublabel">From:</span>
-                <input type="date" id="sbStartDate" min="2010-02-11" max="2026-03-30" value="2010-02-11">
+                <input type="date" id="sbStartDate" min="2010-02-11" max="2026-10-01" value="2010-02-11">
               </div>
               <div>
                 <span class="sb-sublabel">To:</span>
-                <input type="date" id="sbEndDate" min="2010-02-11" max="2026-03-30" value="2026-03-30">
+                <input type="date" id="sbEndDate" min="2010-02-11" max="2026-10-01" value="2026-10-01">
               </div>
             </div>
           </div>
@@ -819,7 +827,9 @@
           <!-- Parameter 4: Primary Trend SMA -->
           <div class="sandbox-field-group">
             <div class="sandbox-label-row">
-              <label class="sandbox-label">Exit Trend SMA Period</label>
+              <label class="sandbox-label" data-help="sma50" style="cursor: pointer;">
+                Exit Trend SMA Period <i class="fa-regular fa-circle-question qm-help-icon" title="Simple moving average lookback window"></i>
+              </label>
               <span class="sb-val-display font-mono text-cyan" id="sbSmaDisplay">50 Days</span>
             </div>
             <input type="range" id="sbSmaPeriod" min="20" max="200" step="10" value="50" class="sandbox-range">
@@ -833,7 +843,11 @@
 
           <!-- Parameter 5: Hysteresis Buffer Type & Value -->
           <div class="sandbox-field-group">
-            <label class="sandbox-label">Hysteresis Buffer Method</label>
+            <div class="sandbox-label-row">
+              <label class="sandbox-label" data-help="hysteresis" style="cursor: pointer;">
+                Hysteresis Buffer Method <i class="fa-regular fa-circle-question qm-help-icon" title="Whipsaw suppression zone around moving average"></i>
+              </label>
+            </div>
             <div class="sandbox-select-wrap">
               <select id="sbBufferType">
                 <option value="atr_1_0" selected>Symmetric ATR (1.0× ATR Buffer — Benchmark)</option>
@@ -848,7 +862,11 @@
 
           <!-- Parameter 6: RSI Momentum Overbought Trim -->
           <div class="sandbox-field-group">
-            <label class="sandbox-label">RSI(14) Momentum Trim Policy</label>
+            <div class="sandbox-label-row">
+              <label class="sandbox-label" data-help="rsi" style="cursor: pointer;">
+                RSI(14) Momentum Trim Policy <i class="fa-regular fa-circle-question qm-help-icon" title="Relative Strength Index momentum profit-taking rule"></i>
+              </label>
+            </div>
             <div class="sandbox-select-wrap">
               <select id="sbRsiTrim">
                 <option value="75_25" selected>Trim 25% when RSI &gt; 75 (Benchmark)</option>
@@ -861,7 +879,11 @@
 
           <!-- Parameter 7: Bear Regime Asset -->
           <div class="sandbox-field-group">
-            <label class="sandbox-label">Bear Regime Asset</label>
+            <div class="sandbox-label-row">
+              <label class="sandbox-label" data-help="crisis_alpha" style="cursor: pointer;">
+                Bear Regime Asset <i class="fa-regular fa-circle-question qm-help-icon" title="Defensive asset held during market downtrends"></i>
+              </label>
+            </div>
             <div class="sandbox-select-wrap">
               <select id="sbBearAsset">
                 <option value="cash" selected>100% Cash / Treasury Yield (4.5% APR — Benchmark)</option>
@@ -882,51 +904,51 @@
           <div class="sandbox-section-title"><i class="fa-solid fa-chart-line text-emerald"></i> Performance Scorecard vs. Benchmark</div>
           
           <div class="sb-scorecard-grid">
-            <div class="sb-metric-box">
-              <div class="sb-metric-label">FINAL PORTFOLIO VALUE</div>
+            <div class="sb-metric-box" data-help="sb_final_val" style="cursor: pointer;">
+              <div class="sb-metric-label">FINAL PORTFOLIO VALUE <i class="fa-regular fa-circle-question qm-help-icon"></i></div>
               <div class="sb-metric-val font-mono text-emerald" id="sbResValue">$446,090</div>
               <div class="sb-metric-bench" id="sbBenchValue">Benchmark: $446,090</div>
             </div>
 
-            <div class="sb-metric-box">
-              <div class="sb-metric-label" id="sbInvestedLabel">TOTAL INVESTED PRINCIPAL</div>
+            <div class="sb-metric-box" data-help="sb_invested" style="cursor: pointer;" id="sbInvestedBox">
+              <div class="sb-metric-label" id="sbInvestedLabel">TOTAL INVESTED PRINCIPAL <i class="fa-regular fa-circle-question qm-help-icon"></i></div>
               <div class="sb-metric-val font-mono text-cyan" id="sbResInvested">$10,000</div>
               <div class="sb-metric-bench" id="sbBenchInvested">Initial + Recurring Deposits</div>
             </div>
 
-            <div class="sb-metric-box">
-              <div class="sb-metric-label" id="sbReturnLabel">NET PROFIT & ROIC</div>
+            <div class="sb-metric-box" data-help="sb_net_profit" style="cursor: pointer;">
+              <div class="sb-metric-label" id="sbReturnLabel">NET PROFIT & ROIC <i class="fa-regular fa-circle-question qm-help-icon"></i></div>
               <div class="sb-metric-val font-mono text-emerald" id="sbResReturn">+$436,090 (+4,360.9%)</div>
               <div class="sb-metric-bench" id="sbBenchReturn">Benchmark: +$436,090</div>
             </div>
 
-            <div class="sb-metric-box">
-              <div class="sb-metric-label" id="sbCagrLabel">ANNUALIZED RETURN (CAGR / IRR)</div>
-              <div class="sb-metric-val font-mono text-amber" id="sbResCagr">+25.7%</div>
+            <div class="sb-metric-box" data-help="sb_irr" style="cursor: pointer;">
+              <div class="sb-metric-label" id="sbCagrLabel">ANNUALIZED RETURN (CAGR / IRR) <i class="fa-regular fa-circle-question qm-help-icon"></i></div>
+              <div class="sb-metric-val font-mono text-emerald" id="sbResCagr">+25.7%</div>
               <div class="sb-metric-bench" id="sbBenchCagr">Benchmark: +25.7%</div>
             </div>
 
-            <div class="sb-metric-box">
-              <div class="sb-metric-label">SHARPE RATIO (Rf 4.5%)</div>
-              <div class="sb-metric-val font-mono text-cyan" id="sbResSharpe">0.64</div>
+            <div class="sb-metric-box" data-help="sharpe" style="cursor: pointer;">
+              <div class="sb-metric-label">SHARPE RATIO (Rf 4.5%) <i class="fa-regular fa-circle-question qm-help-icon"></i></div>
+              <div class="sb-metric-val font-mono text-amber" id="sbResSharpe">0.64</div>
               <div class="sb-metric-bench" id="sbBenchSharpe">Benchmark: 0.64</div>
             </div>
 
-            <div class="sb-metric-box">
-              <div class="sb-metric-label">MAXIMUM DRAWDOWN</div>
-              <div class="sb-metric-val font-mono text-rose" id="sbResMaxDd">-52.3%</div>
+            <div class="sb-metric-box" data-help="sb_max_dd" style="cursor: pointer;">
+              <div class="sb-metric-label">MAXIMUM DRAWDOWN <i class="fa-regular fa-circle-question qm-help-icon"></i></div>
+              <div class="sb-metric-val font-mono text-amber" id="sbResMaxDd">-52.3%</div>
               <div class="sb-metric-bench" id="sbBenchMaxDd">Benchmark: -52.3%</div>
             </div>
 
-            <div class="sb-metric-box">
-              <div class="sb-metric-label">WEALTH MULTIPLIER (ROI)</div>
-              <div class="sb-metric-val font-mono text-purple" id="sbResMultiplier">44.6×</div>
+            <div class="sb-metric-box" data-help="sb_multiplier" style="cursor: pointer;">
+              <div class="sb-metric-label">WEALTH MULTIPLIER (ROI) <i class="fa-regular fa-circle-question qm-help-icon"></i></div>
+              <div class="sb-metric-val font-mono text-emerald" id="sbResMultiplier">44.6×</div>
               <div class="sb-metric-bench" id="sbBenchMultiplier">Benchmark: 44.6×</div>
             </div>
 
-            <div class="sb-metric-box">
-              <div class="sb-metric-label">TRADE CYCLES & WIN RATE</div>
-              <div class="sb-metric-val font-mono text-purple" id="sbResWinRate">47.5% (40 Wins)</div>
+            <div class="sb-metric-box" data-help="win_rate" style="cursor: pointer;">
+              <div class="sb-metric-label">TRADE CYCLES & WIN RATE <i class="fa-regular fa-circle-question qm-help-icon"></i></div>
+              <div class="sb-metric-val font-mono text-amber" id="sbResWinRate">47.5% (40 Wins)</div>
               <div class="sb-metric-bench" id="sbBenchWinRate">Benchmark: 47.5% (84 Cycles)</div>
             </div>
           </div>
