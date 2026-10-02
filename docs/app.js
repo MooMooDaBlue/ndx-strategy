@@ -701,6 +701,35 @@ function renderUI(data) {
 /* ==========================================================================
    1. INSTITUTIONAL QUANT METRICS CALCULATOR & RENDERER
    ========================================================================== */
+/**
+ * Returns dynamic color class for metric value matching tooltip legend ratings:
+ * - Red ('text-rose'): Subpar / High Drawdown / Trailing
+ * - Amber ('text-amber'): Medium / Solid / Benchmark
+ * - Emerald ('text-emerald'): Strong / Institutional Elite / Top 1%
+ */
+function getMetricRatingClass(metricKey, val) {
+  switch (metricKey) {
+    case "sharpe":
+      return val >= 1.0 ? "text-emerald" : (val >= 0.5 ? "text-amber" : "text-rose");
+    case "sortino":
+      return val >= 1.0 ? "text-emerald" : (val >= 0.6 ? "text-amber" : "text-rose");
+    case "calmar":
+      return val >= 0.7 ? "text-emerald" : (val >= 0.3 ? "text-amber" : "text-rose");
+    case "cagr":
+      return val >= 0.20 ? "text-emerald" : (val >= 0.12 ? "text-amber" : "text-rose");
+    case "profit_factor":
+      return val >= 1.6 ? "text-emerald" : (val >= 1.2 ? "text-amber" : "text-rose");
+    case "win_rate":
+      return val >= 50.0 ? "text-emerald" : (val >= 40.0 ? "text-amber" : "text-rose");
+    case "payoff":
+      return val >= 2.0 ? "text-emerald" : (val >= 1.5 ? "text-amber" : "text-rose");
+    case "max_dd_duration":
+      return val <= 300 ? "text-emerald" : (val <= 600 ? "text-amber" : "text-rose");
+    default:
+      return "text-cyan";
+  }
+}
+
 function renderQuantMetrics(data) {
   const modelObj = (data.models && data.models[currentModel]) ? data.models[currentModel] : data;
   let daily = modelObj.daily_summary ? [...modelObj.daily_summary] : [...(data.daily_summary || [])];
@@ -822,35 +851,6 @@ function renderQuantMetrics(data) {
   const avgWinPct = wins.length > 0 ? (wins.reduce((acc, c) => acc + c.pnlPct, 0) / wins.length) : 0;
   const avgLossPct = losses.length > 0 ? (losses.reduce((acc, c) => acc + c.pnlPct, 0) / losses.length) : 0;
   const payoffRatio = Math.abs(avgLossPct) > 0 ? (avgWinPct / Math.abs(avgLossPct)) : 0;
-
-/**
- * Returns dynamic color class for metric value matching tooltip legend ratings:
- * - Red ('text-rose'): Subpar / High Drawdown / Trailing
- * - Amber ('text-amber'): Medium / Solid / Benchmark
- * - Emerald ('text-emerald'): Strong / Institutional Elite / Top 1%
- */
-function getMetricRatingClass(metricKey, val) {
-  switch (metricKey) {
-    case "sharpe":
-      return val >= 1.0 ? "text-emerald" : (val >= 0.5 ? "text-amber" : "text-rose");
-    case "sortino":
-      return val >= 1.0 ? "text-emerald" : (val >= 0.6 ? "text-amber" : "text-rose");
-    case "calmar":
-      return val >= 0.7 ? "text-emerald" : (val >= 0.3 ? "text-amber" : "text-rose");
-    case "cagr":
-      return val >= 0.20 ? "text-emerald" : (val >= 0.12 ? "text-amber" : "text-rose");
-    case "profit_factor":
-      return val >= 1.6 ? "text-emerald" : (val >= 1.2 ? "text-amber" : "text-rose");
-    case "win_rate":
-      return val >= 50.0 ? "text-emerald" : (val >= 40.0 ? "text-amber" : "text-rose");
-    case "payoff":
-      return val >= 2.0 ? "text-emerald" : (val >= 1.5 ? "text-amber" : "text-rose");
-    case "max_dd_duration":
-      return val <= 300 ? "text-emerald" : (val <= 600 ? "text-amber" : "text-rose");
-    default:
-      return "text-cyan";
-  }
-}
 
   // Update DOM Elements & dynamic rating color classes
   const elSharpe = document.getElementById("qmSharpe");
