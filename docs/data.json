@@ -260097,5 +260097,10 @@
     "market_close_time_mt": "13:50",
     "market_close_time_et": "15:50",
     "risk_free_annual_rate": 0.045
+  },
+  "scheduler": {
+    "is_active_session": true,
+    "next_run_target": "13:50:00 MT (15:50:00 ET)",
+    "server_time": "2026-10-02 23:17:37"
   }
 }

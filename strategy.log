@@ -23,3 +23,30 @@ Current Status as of 2026-10-01:
 2026-10-01 15:26:08,887 [INFO] Current Prices — TQQQ: $78.73 | SQQQ: $34.11
 2026-10-01 15:26:08,888 [INFO] Portfolio loaded: TQQQ_100 | Value: $497,486.24
 2026-10-01 15:26:08,888 [INFO]   Already ran today (2026-10-01) — skipping duplicate run.
+2026-10-02 23:17:36,275 [INFO] ============================================================
+2026-10-02 23:17:36,275 [INFO] NDX SMA + RSI Strategy — Daily Run
+2026-10-02 23:17:36,275 [INFO] Run time: 2026-10-02 23:17:36
+2026-10-02 23:17:36,275 [INFO] ============================================================
+2026-10-02 23:17:36,275 [INFO] Fetching data for ^NDX...
+2026-10-02 23:17:36,552 [INFO]   ^NDX: 501 bars fetched, latest close: 30807.93
+2026-10-02 23:17:36,552 [INFO] Fetching data for TQQQ...
+2026-10-02 23:17:36,692 [INFO]   TQQQ: 5 bars fetched, latest close: 81.01
+2026-10-02 23:17:36,692 [INFO] Fetching data for SQQQ...
+2026-10-02 23:17:36,822 [INFO]   SQQQ: 5 bars fetched, latest close: 33.12
+2026-10-02 23:17:36,822 [INFO] Current Prices — TQQQ: $81.01 | SQQQ: $33.12
+2026-10-02 23:17:36,823 [INFO] Portfolio loaded: TQQQ_100 | Value: $446,089.97
+2026-10-02 23:17:36,826 [INFO] Signal: TQQQ_100 | RSI: 65.3 | NDX: 30807.9 | SMA50: 29457.9 | SMA250: 27024.7
+2026-10-02 23:17:36,827 [INFO] Reason: Bull trend confirmed: Price > SMA50 & SMA250, RSI 65.3
+2026-10-02 23:17:36,827 [INFO]   No change — already in TQQQ_100
+2026-10-02 23:17:36,829 [INFO]   Daily summary logged: Value=$459,008.61 | P&L=+4490.09%
+2026-10-02 23:17:36,829 [INFO]   Benchmarks: NDX B&H=+1634.93% | TQQQ B&H=+39381.41%
+2026-10-02 23:17:36,829 [INFO] ------------------------------------------------------------
+2026-10-02 23:17:36,829 [INFO] PORTFOLIO SUMMARY
+2026-10-02 23:17:36,829 [INFO]   Position:      TQQQ_100
+2026-10-02 23:17:36,829 [INFO]   Total Value:   $  459,008.61
+2026-10-02 23:17:36,829 [INFO]   Cash:          $        0.00
+2026-10-02 23:17:36,829 [INFO]   TQQQ Shares:      5666.0733
+2026-10-02 23:17:36,829 [INFO]   SQQQ Shares:         0.0000
+2026-10-02 23:17:36,829 [INFO]   Total P&L:     $ +449,008.61 (+4490.09%)
+2026-10-02 23:17:36,829 [INFO] ============================================================
+2026-10-02 23:17:37,421 [INFO]   Push notification sent via ntfy.
