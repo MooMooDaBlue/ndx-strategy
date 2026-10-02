@@ -134,27 +134,13 @@ def start_scheduler_thread():
 # DATA AGGREGATION FOR DASHBOARD
 # ─────────────────────────────────────────────
 def get_dashboard_data():
-    """Read and compile all current data from files into a single JSON payload."""
-    data_json_path = os.path.join(WEB_DIR, "data.json")
-    if os.path.exists(data_json_path):
-        try:
-            with open(data_json_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                data["scheduler"] = {
-                    "is_active_session": is_trading_day(),
-                    "next_run_target": "13:50:00 MT (15:50:00 ET)",
-                    "server_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }
-                return data
-        except Exception as e:
-            print(f"Error loading {data_json_path}: {e}")
-
+    """Read and compile all current data from files into a complete, fresh JSON payload."""
     portfolio_file = os.path.join(BASE_DIR, "portfolio_state.json")
     daily_file = os.path.join(BASE_DIR, "daily_summary.csv")
     trade_file = os.path.join(BASE_DIR, "trade_log.csv")
     log_file = os.path.join(BASE_DIR, "strategy.log")
 
-    # 1. Load Portfolio State
+    # 1. Load Portfolio State (Symmetric 1.0x ATR)
     if os.path.exists(portfolio_file):
         with open(portfolio_file, "r", encoding="utf-8") as f:
             portfolio = json.load(f)
@@ -209,26 +195,26 @@ def get_dashboard_data():
             print(f"Error reading log file: {e}")
 
     # 5. Compute Key Statistics
-    starting_cap = portfolio.get("starting_capital", 40000.0)
-    current_val = portfolio.get("total_value", starting_cap)
+    starting_cap = float(portfolio.get("starting_capital", 10000.0))
+    current_val = float(portfolio.get("total_value", starting_cap))
     total_pnl = current_val - starting_cap
     total_pnl_pct = (current_val / starting_cap - 1) * 100 if starting_cap > 0 else 0.0
 
     hwm = starting_cap
     max_dd = 0.0
     for r in daily_records:
-        val = r.get("total_value", starting_cap)
+        val = float(r.get("total_value", starting_cap))
         if val > hwm:
             hwm = val
-        dd = (val - hwm) / hwm * 100
+        dd = (val - hwm) / hwm * 100 if hwm > 0 else 0.0
         if dd < max_dd:
             max_dd = dd
 
     latest_daily = daily_records[-1] if daily_records else {}
-    ndx_price = latest_daily.get("ndx_price", 30501.56)
-    sma50 = latest_daily.get("sma50", 29410.86)
-    sma250 = latest_daily.get("sma250", 27000.57)
-    rsi = latest_daily.get("rsi", 61.45)
+    ndx_price = float(latest_daily.get("ndx_price", 30807.93))
+    sma50 = float(latest_daily.get("sma50", 29457.93))
+    sma250 = float(latest_daily.get("sma250", 27024.66))
+    rsi = float(latest_daily.get("rsi", 65.3))
 
     dist_sma50_pts = ndx_price - sma50
     dist_sma50_pct = (dist_sma50_pts / sma50) * 100 if sma50 > 0 else 0
@@ -247,33 +233,125 @@ def get_dashboard_data():
         elif next_run_dt.weekday() == 6:
             next_run_dt += timedelta(days=1)
 
+    fresh_stats = {
+        "total_pnl": round(total_pnl, 2),
+        "total_pnl_pct": round(total_pnl_pct, 2),
+        "high_water_mark": round(hwm, 2),
+        "max_drawdown_pct": round(max_dd, 2),
+        "trading_days_tracked": len(daily_records),
+        "total_trades": len(trades),
+        "ndx_price": round(ndx_price, 2),
+        "sma50": round(sma50, 2),
+        "sma250": round(sma250, 2),
+        "rsi": round(rsi, 2),
+        "dist_sma50_pts": round(dist_sma50_pts, 2),
+        "dist_sma50_pct": round(dist_sma50_pct, 2),
+        "dist_sma250_pts": round(dist_sma250_pts, 2),
+        "dist_sma250_pct": round(dist_sma250_pct, 2),
+        "server_time": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "next_run_time": next_run_dt.strftime("%Y-%m-%d %H:%M:%S MT"),
+    }
+
+    # Load existing template if available so model definitions and descriptions are preserved
+    data_json_path = os.path.join(WEB_DIR, "data.json")
+    base_data = None
+    if os.path.exists(data_json_path):
+        try:
+            with open(data_json_path, "r", encoding="utf-8") as f:
+                base_data = json.load(f)
+        except Exception as e:
+            print(f"Error loading {data_json_path}: {e}")
+
+    if base_data and isinstance(base_data, dict):
+        data = base_data
+        data["portfolio"] = portfolio
+        data["daily_summary"] = daily_records
+        data["trades"] = trades
+        data["recent_logs"] = recent_logs
+        if "stats" in data and isinstance(data["stats"], dict):
+            data["stats"].update(fresh_stats)
+        else:
+            data["stats"] = fresh_stats
+
+        # Update models structure
+        if "models" in data and isinstance(data["models"], dict):
+            # Symmetric ATR model
+            if "symmetric_atr" in data["models"]:
+                m_sym = data["models"]["symmetric_atr"]
+                m_sym["portfolio"] = portfolio
+                m_sym["ending_value"] = round(current_val, 2)
+                m_sym["total_return_pct"] = round(total_pnl_pct, 2)
+                m_sym["daily_summary"] = daily_records
+                m_sym["trades"] = trades
+                m_sym["recent_logs"] = recent_logs
+                if "stats" in m_sym and isinstance(m_sym["stats"], dict):
+                    m_sym["stats"].update(fresh_stats)
+                else:
+                    m_sym["stats"] = fresh_stats
+
+            # Original Agile model
+            if "original_agile" in data["models"]:
+                m_orig = data["models"]["original_agile"]
+                orig_p_file = os.path.join(BASE_DIR, "portfolio_state_original.json")
+                orig_d_file = os.path.join(BASE_DIR, "daily_summary_original.csv")
+                orig_t_file = os.path.join(BASE_DIR, "trade_log_original.csv")
+
+                if os.path.exists(orig_p_file):
+                    try:
+                        with open(orig_p_file, "r", encoding="utf-8") as f:
+                            p_orig = json.load(f)
+                        m_orig["portfolio"] = p_orig
+                        orig_val = float(p_orig.get("total_value", 10000.0))
+                        orig_start = float(p_orig.get("starting_capital", 10000.0))
+                        orig_pnl_pct = (orig_val / orig_start - 1) * 100
+                        m_orig["ending_value"] = round(orig_val, 2)
+                        m_orig["total_return_pct"] = round(orig_pnl_pct, 2)
+                        if "stats" in m_orig and isinstance(m_orig["stats"], dict):
+                            m_orig["stats"]["total_pnl"] = round(orig_val - orig_start, 2)
+                            m_orig["stats"]["total_pnl_pct"] = round(orig_pnl_pct, 2)
+                            m_orig["stats"]["ndx_price"] = round(ndx_price, 2)
+                            m_orig["stats"]["sma50"] = round(sma50, 2)
+                            m_orig["stats"]["sma250"] = round(sma250, 2)
+                            m_orig["stats"]["rsi"] = round(rsi, 2)
+                    except Exception as e:
+                        print(f"Error loading original portfolio state: {e}")
+
+                if os.path.exists(orig_d_file):
+                    try:
+                        df_orig = pd.read_csv(orig_d_file).fillna(0)
+                        m_orig["daily_summary"] = df_orig.to_dict(orient="records")
+                    except Exception as e:
+                        print(f"Error loading original daily summary: {e}")
+
+                if os.path.exists(orig_t_file):
+                    try:
+                        df_ot = pd.read_csv(orig_t_file).fillna("")
+                        m_orig["trades"] = df_ot.to_dict(orient="records")
+                    except Exception as e:
+                        print(f"Error loading original trades: {e}")
+
+        data["scheduler"] = {
+            "active": True,
+            "is_active_session": is_trading_day(),
+            "scheduled_time": "1:50 PM MT (3:50 PM ET)",
+            "next_run_target": "13:50:00 MT (15:50:00 ET)",
+            "server_time": now.strftime("%Y-%m-%d %H:%M:%S"),
+            "last_run_date": portfolio.get("last_run_date"),
+        }
+        return data
+
     return {
         "portfolio": portfolio,
         "daily_summary": daily_records,
         "trades": trades,
         "recent_logs": recent_logs,
-        "stats": {
-            "total_pnl": round(total_pnl, 2),
-            "total_pnl_pct": round(total_pnl_pct, 2),
-            "high_water_mark": round(hwm, 2),
-            "max_drawdown_pct": round(max_dd, 2),
-            "trading_days_tracked": len(daily_records),
-            "total_trades": len(trades),
-            "ndx_price": round(ndx_price, 2),
-            "sma50": round(sma50, 2),
-            "sma250": round(sma250, 2),
-            "rsi": round(rsi, 2),
-            "dist_sma50_pts": round(dist_sma50_pts, 2),
-            "dist_sma50_pct": round(dist_sma50_pct, 2),
-            "dist_sma250_pts": round(dist_sma250_pts, 2),
-            "dist_sma250_pct": round(dist_sma250_pct, 2),
-            "server_time": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "next_run_time": next_run_dt.strftime("%Y-%m-%d %H:%M:%S MT"),
-        },
+        "stats": fresh_stats,
         "scheduler": {
             "active": True,
+            "is_active_session": is_trading_day(),
             "scheduled_time": "1:50 PM MT (3:50 PM ET)",
-            "is_trading_day": is_trading_day(),
+            "next_run_target": "13:50:00 MT (15:50:00 ET)",
+            "server_time": now.strftime("%Y-%m-%d %H:%M:%S"),
             "last_run_date": portfolio.get("last_run_date"),
         },
         "config": {

@@ -2,8 +2,14 @@ name: Daily Strategy Execution & Pages Sync
 
 on:
   schedule:
-    # Runs Monday through Friday at 19:50 UTC (1:50 PM Mountain Time / 3:50 PM Eastern Time)
+    # Primary trigger: 19:50 UTC (3:50 PM EDT / 1:50 PM MDT during Daylight Saving Time)
     - cron: '50 19 * * 1-5'
+    # Backup triggers in case GitHub runner queues experience peak-hour queuing delay:
+    - cron: '05 20 * * 1-5'
+    - cron: '20 20 * * 1-5'
+    # Winter standard time triggers: 20:50 UTC (3:50 PM EST / 1:50 PM MST)
+    - cron: '50 20 * * 1-5'
+    - cron: '05 21 * * 1-5'
   workflow_dispatch: # Allows manual trigger from GitHub UI anytime
 
 permissions:
@@ -43,5 +49,6 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add portfolio_state.json daily_summary.csv trade_log.csv strategy.log performance_chart.png docs/ web/data.json
+          git add portfolio_state*.json daily_summary*.csv trade_log*.csv strategy*.log performance_chart.png docs/ web/data.json
           git diff --quiet && git diff --staged --quiet || (git commit -m "Auto: Daily Strategy Execution [skip ci]" && git push)
+

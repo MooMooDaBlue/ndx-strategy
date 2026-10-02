@@ -50,3 +50,16 @@ Current Status as of 2026-10-01:
 2026-10-02 23:17:36,829 [INFO]   Total P&L:     $ +449,008.61 (+4490.09%)
 2026-10-02 23:17:36,829 [INFO] ============================================================
 2026-10-02 23:17:37,421 [INFO]   Push notification sent via ntfy.
+2026-10-02 17:42:12,354 [INFO] ============================================================
+2026-10-02 17:42:12,354 [INFO] NDX SMA + RSI Strategy — Daily Run
+2026-10-02 17:42:12,354 [INFO] Run time: 2026-10-02 17:42:12
+2026-10-02 17:42:12,354 [INFO] ============================================================
+2026-10-02 17:42:12,354 [INFO] Fetching data for ^NDX...
+2026-10-02 17:42:14,012 [INFO]   ^NDX: 501 bars fetched, latest close: 30807.93
+2026-10-02 17:42:14,012 [INFO] Fetching data for TQQQ...
+2026-10-02 17:42:14,168 [INFO]   TQQQ: 5 bars fetched, latest close: 81.01
+2026-10-02 17:42:14,168 [INFO] Fetching data for SQQQ...
+2026-10-02 17:42:14,313 [INFO]   SQQQ: 5 bars fetched, latest close: 33.12
+2026-10-02 17:42:14,313 [INFO] Current Prices — TQQQ: $81.01 | SQQQ: $33.12
+2026-10-02 17:42:14,313 [INFO] Portfolio loaded: TQQQ_100 | Value: $459,008.61
+2026-10-02 17:42:14,313 [INFO]   Already ran today (2026-10-02) — skipping duplicate run.

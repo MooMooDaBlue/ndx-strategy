@@ -556,9 +556,22 @@ def log_daily_summary(portfolio: dict, signal_data: dict, filepath: str, tqqq_pr
     ndx_start = portfolio.get("benchmark_ndx_start", signal_data["price"])
     tqqq_start = portfolio.get("benchmark_tqqq_start", tqqq_price) if tqqq_price > 0 else 1.0
 
+    alloc = portfolio.get("allocation_pct")
+    if alloc is None:
+        pos = portfolio.get("position", "CASH")
+        if pos == "TQQQ_100" or pos == "SQQQ":
+            alloc = 1.0
+        elif pos == "TQQQ_50":
+            alloc = 0.5
+        elif pos == "TQQQ_30":
+            alloc = 0.3
+        else:
+            alloc = 0.0
+
     record = {
         "date": signal_data["date"],
         "position": portfolio["position"],
+        "allocation_pct": alloc,
         "total_value": round(portfolio["total_value"], 2),
         "cash": round(portfolio["cash"], 2),
         "tqqq_shares": round(portfolio["tqqq_shares"], 4),
@@ -574,9 +587,35 @@ def log_daily_summary(portfolio: dict, signal_data: dict, filepath: str, tqqq_pr
         "ndx_buyhold_pnl_pct": round((signal_data["price"] / ndx_start - 1) * 100, 2),
         "tqqq_buyhold_pnl_pct": round((tqqq_price / tqqq_start - 1) * 100, 2) if tqqq_price > 0 else 0.0,
     }
-    df = pd.DataFrame([record])
-    header = not os.path.exists(filepath)
-    df.to_csv(filepath, mode="a", header=header, index=False)
+
+    # If daily_summary.csv has existing columns, reindex to match them strictly
+    if os.path.exists(filepath):
+        try:
+            existing_cols = pd.read_csv(filepath, nrows=0).columns.tolist()
+            if "total_value_orig" in existing_cols and "total_value_orig" not in record:
+                orig_file = os.path.join(os.path.dirname(filepath) or ".", "portfolio_state_original.json")
+                if os.path.exists(orig_file):
+                    try:
+                        with open(orig_file, "r", encoding="utf-8") as f:
+                            p_orig = json.load(f)
+                        record["total_value_orig"] = round(p_orig.get("total_value", 0.0), 2)
+                        record["pos_orig"] = p_orig.get("position", "CASH")
+                    except Exception:
+                        record["total_value_orig"] = record["total_value"]
+                        record["pos_orig"] = record["position"]
+                else:
+                    record["total_value_orig"] = record["total_value"]
+                    record["pos_orig"] = record["position"]
+            df = pd.DataFrame([record])
+            df = df.reindex(columns=existing_cols)
+            df.to_csv(filepath, mode="a", header=False, index=False)
+        except Exception:
+            df = pd.DataFrame([record])
+            df.to_csv(filepath, mode="a", header=False, index=False)
+    else:
+        df = pd.DataFrame([record])
+        df.to_csv(filepath, mode="w", header=True, index=False)
+
     log.info(f"  Daily summary logged: Value=${record['total_value']:,.2f} | P&L={record['pnl_pct']:+.2f}%")
     log.info(f"  Benchmarks: NDX B&H={record['ndx_buyhold_pnl_pct']:+.2f}% | TQQQ B&H={record['tqqq_buyhold_pnl_pct']:+.2f}%")
 
