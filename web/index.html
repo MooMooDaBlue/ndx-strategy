@@ -16,7 +16,7 @@
   <!-- Chart.js for High Performance Canvas Charts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   
-  <link rel="stylesheet" href="style.css?v=2.6">
+  <link rel="stylesheet" href="style.css?v=2.7">
 </head>
 <body>
   <div class="app-container">
@@ -104,9 +104,9 @@
     <!-- 4 KPI Cards Grid -->
     <section class="kpi-grid">
       <!-- Card 1: Total Portfolio -->
-      <div class="kpi-card card-glow-emerald">
+      <div class="kpi-card card-glow-emerald" data-help="hwm">
         <div class="kpi-top">
-          <span class="kpi-title">TOTAL PORTFOLIO VALUE</span>
+          <span class="kpi-title">TOTAL PORTFOLIO VALUE <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
           <span class="kpi-icon-box"><i class="fa-solid fa-wallet"></i></span>
         </div>
         <div class="kpi-value" id="totalValue">$0.00</div>
@@ -117,9 +117,9 @@
       </div>
 
       <!-- Card 2: Current Holdings -->
-      <div class="kpi-card card-glow-blue">
+      <div class="kpi-card card-glow-blue" data-help="tqqq_sqqq">
         <div class="kpi-top">
-          <span class="kpi-title">ACTIVE HOLDINGS & ALLOCATION</span>
+          <span class="kpi-title">ACTIVE HOLDINGS & ALLOCATION <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
           <span class="kpi-icon-box"><i class="fa-solid fa-chart-pie"></i></span>
         </div>
         <div class="kpi-value" id="holdingsTitle">--</div>
@@ -130,9 +130,9 @@
       </div>
 
       <!-- Card 3: NDX Level -->
-      <div class="kpi-card card-glow-purple">
+      <div class="kpi-card card-glow-purple" data-help="sma50">
         <div class="kpi-top">
-          <span class="kpi-title">NASDAQ-100 (^NDX) LEVEL</span>
+          <span class="kpi-title">NASDAQ-100 (^NDX) LEVEL <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
           <span class="kpi-icon-box"><i class="fa-solid fa-arrow-trend-up"></i></span>
         </div>
         <div class="kpi-value" id="ndxLevel">0.00</div>
@@ -143,9 +143,9 @@
       </div>
 
       <!-- Card 4: RSI Indicator -->
-      <div class="kpi-card card-glow-pink">
+      <div class="kpi-card card-glow-pink" data-help="rsi">
         <div class="kpi-top">
-          <span class="kpi-title">RSI (14) MOMENTUM</span>
+          <span class="kpi-title">RSI (14) MOMENTUM <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
           <span class="kpi-icon-box"><i class="fa-solid fa-gauge-high"></i></span>
         </div>
         <div class="kpi-value" id="rsiValue">0.0</div>
@@ -168,72 +168,72 @@
       </div>
     </div>
     <section class="quant-metrics-strip" id="quantMetricsStrip">
-      <div class="quant-metric-card" title="Annualized excess return per unit of total risk (Rf = 4.5%)">
+      <div class="quant-metric-card" data-help="sharpe">
         <div class="qm-header">
-          <span class="qm-label">SHARPE RATIO</span>
+          <span class="qm-label">SHARPE RATIO <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
           <i class="fa-solid fa-calculator qm-icon text-cyan"></i>
         </div>
         <div class="qm-value text-cyan" id="qmSharpe">--</div>
         <div class="qm-footer">Rf Benchmark: 4.5%</div>
       </div>
 
-      <div class="quant-metric-card" title="Risk-adjusted return penalizing only downside volatility">
+      <div class="quant-metric-card" data-help="sortino">
         <div class="qm-header">
-          <span class="qm-label">SORTINO RATIO</span>
+          <span class="qm-label">SORTINO RATIO <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
           <i class="fa-solid fa-chart-line-up qm-icon text-emerald"></i>
         </div>
         <div class="qm-value text-emerald" id="qmSortino">--</div>
         <div class="qm-footer">Downside Risk Focus</div>
       </div>
 
-      <div class="quant-metric-card" title="Compound Annual Growth Rate divided by Maximum Drawdown">
+      <div class="quant-metric-card" data-help="calmar">
         <div class="qm-header">
-          <span class="qm-label">CALMAR RATIO</span>
+          <span class="qm-label">CALMAR RATIO <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
           <i class="fa-solid fa-shield-halved qm-icon text-purple"></i>
         </div>
         <div class="qm-value text-purple" id="qmCalmar">--</div>
         <div class="qm-footer">CAGR / Max DD</div>
       </div>
 
-      <div class="quant-metric-card" title="16-Year Compound Annual Growth Rate">
+      <div class="quant-metric-card" data-help="cagr">
         <div class="qm-header">
-          <span class="qm-label">16Y CAGR</span>
+          <span class="qm-label">16Y CAGR <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
           <i class="fa-solid fa-seedling qm-icon text-amber"></i>
         </div>
         <div class="qm-value text-amber" id="qmCagr">--</div>
         <div class="qm-footer">Annual Compounded</div>
       </div>
 
-      <div class="quant-metric-card" title="Ratio of gross trading profits to gross trading losses">
+      <div class="quant-metric-card" data-help="profit_factor">
         <div class="qm-header">
-          <span class="qm-label">PROFIT FACTOR</span>
+          <span class="qm-label">PROFIT FACTOR <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
           <i class="fa-solid fa-scale-balanced qm-icon text-cyan"></i>
         </div>
         <div class="qm-value text-cyan" id="qmProfitFactor">--</div>
         <div class="qm-footer" id="qmProfitFactorSub">Gross Win / Gross Loss</div>
       </div>
 
-      <div class="quant-metric-card" title="Percentage of completed trade cycles that were profitable">
+      <div class="quant-metric-card" data-help="win_rate">
         <div class="qm-header">
-          <span class="qm-label">CYCLE WIN RATE</span>
+          <span class="qm-label">CYCLE WIN RATE <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
           <i class="fa-solid fa-bullseye qm-icon text-emerald"></i>
         </div>
         <div class="qm-value text-emerald" id="qmWinRate">--</div>
         <div class="qm-footer" id="qmWinLossCount">-- Wins / -- Losses</div>
       </div>
 
-      <div class="quant-metric-card" title="Average percentage gain on winning trades vs average loss on losing trades">
+      <div class="quant-metric-card" data-help="payoff">
         <div class="qm-header">
-          <span class="qm-label">PAYOFF RATIO</span>
+          <span class="qm-label">PAYOFF RATIO <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
           <i class="fa-solid fa-arrows-split-up-and-left qm-icon text-pink"></i>
         </div>
         <div class="qm-value text-pink" id="qmPayoffRatio">--</div>
         <div class="qm-footer" id="qmPayoffSub">Avg Win vs Avg Loss</div>
       </div>
 
-      <div class="quant-metric-card" title="Longest continuous drawdown recovery period">
+      <div class="quant-metric-card" data-help="max_dd_duration">
         <div class="qm-header">
-          <span class="qm-label">MAX DD DURATION</span>
+          <span class="qm-label">MAX DD DURATION <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
           <i class="fa-solid fa-hourglass-half qm-icon text-rose"></i>
         </div>
         <div class="qm-value text-rose" id="qmMaxDdDuration">--</div>
@@ -906,9 +906,36 @@
     </div>
   </div>
 
+  <!-- Educational Quant Tooltip Popover -->
+  <div class="quant-tooltip-popover" id="quantTooltipPopover" style="display: none;">
+    <div class="qtp-header">
+      <span class="qtp-badge font-mono" id="qtpBadge">METRIC GUIDE</span>
+      <span class="qtp-close-btn" id="qtpCloseBtn" title="Close explanation">&times;</span>
+    </div>
+    <div class="qtp-title-row">
+      <i class="fa-solid fa-graduation-cap qtp-icon" id="qtpIcon"></i>
+      <h4 class="qtp-title" id="qtpTitle">Metric Name</h4>
+    </div>
+    <div class="qtp-body">
+      <div class="qtp-section">
+        <div class="qtp-section-label"><i class="fa-solid fa-comment-dots text-cyan"></i> IN PLAIN ENGLISH:</div>
+        <p class="qtp-text" id="qtpSummary">Explanation goes here...</p>
+      </div>
+      <div class="qtp-section qtp-analogy-box">
+        <div class="qtp-section-label"><i class="fa-solid fa-lightbulb text-amber"></i> REAL-WORLD ANALOGY:</div>
+        <p class="qtp-text" id="qtpAnalogy">Analogy goes here...</p>
+      </div>
+      <div class="qtp-section">
+        <div class="qtp-section-label"><i class="fa-solid fa-gauge text-emerald"></i> HOW TO READ THE SCORE:</div>
+        <div class="qtp-score-pills" id="qtpScorePills"></div>
+      </div>
+      <div class="qtp-strategy-takeaway" id="qtpTakeaway"></div>
+    </div>
+  </div>
+
   <!-- Toast Notification Hub -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="app.js?v=2.6"></script>
+  <script src="app.js?v=2.7"></script>
 </body>
 </html>

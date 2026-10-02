@@ -35,6 +35,7 @@ setInterval(updateClocks, 1000);
 document.addEventListener("DOMContentLoaded", () => {
   parseUrlParams();
   initEventListeners();
+  initEducationalTooltips();
   fetchDashboardData();
   startAutoRefresh();
 });
@@ -2442,4 +2443,320 @@ function exportSandboxCsv() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   showToast("Simulation CSV exported successfully!");
+}
+
+/* ==========================================================================
+   13. EDUCATIONAL QUANT EXPLANATIONS & INTERACTIVE TOOLTIP SYSTEM
+   ========================================================================== */
+const QUANT_EXPLANATIONS = {
+  sortino: {
+    title: "Sortino Ratio",
+    category: "RISK-ADJUSTED EFFICIENCY",
+    icon: "fa-solid fa-chart-line-up text-emerald",
+    summary: "Measures how much return you get for every unit of BAD risk (falling prices). Unlike the Sharpe ratio, it never penalizes your portfolio for sudden surges upward—only downward crashes.",
+    analogy: "Imagine a teacher who only docks points when you fail an exam, but doesn't punish you when you score 120% with extra credit. Sharpe penalizes both; Sortino only punishes the bad days.",
+    scores: [
+      { text: "< 1.0", label: "Subpar", color: "rose" },
+      { text: "1.0 – 1.9", label: "Good Edge", color: "amber" },
+      { text: "≥ 2.0", label: "Institutional Elite", color: "emerald" }
+    ],
+    strategyTakeaway: "Our strategy posts a 0.73 Sortino (vs -0.15 for unhedged TQQQ in bear markets), proving its volatility comes primarily from violent bull runs rather than portfolio wipeouts."
+  },
+  sharpe: {
+    title: "Sharpe Ratio",
+    category: "WALL STREET RISK BENCHMARK",
+    icon: "fa-solid fa-calculator text-cyan",
+    summary: "The universal scorecard of investing. Compares total return against risk-free Treasury yield (4.5%), divided by total volatility (both upswings and downswings).",
+    analogy: "Think of it as miles-per-gallon for financial risk: how much profit do you get per gallon of rollercoaster ride you have to stomach?",
+    scores: [
+      { text: "< 1.0", label: "Acceptable for 3x Beta", color: "cyan" },
+      { text: "1.0 – 1.9", label: "Strong Quant Model", color: "emerald" },
+      { text: "≥ 2.0", label: "World-Class Hedge Fund", color: "purple" }
+    ],
+    strategyTakeaway: "Because TQQQ is 3x leveraged, its total volatility is 3× higher than normal stocks, keeping Sharpe around 0.64 even while delivering a staggering +4,360% total profit."
+  },
+  calmar: {
+    title: "Calmar Ratio",
+    category: "CRASH-TO-REWARD EFFICIENCY",
+    icon: "fa-solid fa-shield-halved text-purple",
+    summary: "Measures annualized return (CAGR) divided by the worst historical crash (Max Drawdown). Answers: 'Is the profit worth the deepest stomach drop you have to endure?'",
+    analogy: "If a rollercoaster climbs 500 feet into the clouds, how terrifying is its steepest 250-foot vertical drop? A higher ratio means massive climb with manageable drops.",
+    scores: [
+      { text: "< 0.3", label: "Weak Crisis Protection", color: "rose" },
+      { text: "0.3 – 0.7", label: "Solid for 3x Tech", color: "amber" },
+      { text: "≥ 1.0", label: "Extraordinary Defense", color: "emerald" }
+    ],
+    strategyTakeaway: "At 0.49 Calmar, this system delivers +25.7% compounded annually while capping worst-ever drawdown at -52% (compared to unhedged TQQQ's brutal -82% collapse)."
+  },
+  cagr: {
+    title: "16Y CAGR (Compounded Growth)",
+    category: "COMPOUNDING WEALTH ENGINE",
+    icon: "fa-solid fa-seedling text-amber",
+    summary: "Compound Annual Growth Rate. The constant annual interest rate that would grow your starting balance into your final balance over the full 16-year timeline.",
+    analogy: "If your savings account paid the exact same guaranteed interest rate every single year for 16 years straight, this is that magic interest rate.",
+    scores: [
+      { text: "10% – 15%", label: "Matches Nasdaq-100", color: "cyan" },
+      { text: "15% – 20%", label: "Beats S&P & NDX", color: "amber" },
+      { text: "≥ 25%", label: "Top 1% Long-Term Alpha", color: "emerald" }
+    ],
+    strategyTakeaway: "+25.7% CAGR turns $10,000 into $446,089.97 over 16 years, outperforming the underlying Nasdaq-100 by more than +2,700%!"
+  },
+  profit_factor: {
+    title: "Profit Factor",
+    category: "GROSS EDGE METRIC",
+    icon: "fa-solid fa-scale-balanced text-cyan",
+    summary: "Total gross cash profits from all winning trades divided by total gross cash losses from all losing trades.",
+    analogy: "For every $1.00 this strategy loses when caught in a false alarm, it takes home $1.70 from winning multi-month rallies.",
+    scores: [
+      { text: "< 1.0", label: "Losing Strategy", color: "rose" },
+      { text: "1.2 – 1.5", label: "Viable Trading Edge", color: "amber" },
+      { text: "≥ 1.6", label: "High-Confidence Edge", color: "emerald" }
+    ],
+    strategyTakeaway: "A 1.70× Profit Factor over 4,185 trading sessions confirms this system has a durable mathematical edge that survived 16 years of bull and bear markets."
+  },
+  win_rate: {
+    title: "Cycle Win Rate",
+    category: "ACCURACY & EXECUTION",
+    icon: "fa-solid fa-bullseye text-emerald",
+    summary: "The percentage of completed trade cycles (from buying TQQQ to selling to Cash) that closed with positive net profit.",
+    analogy: "In baseball, a batter who hits .475 is a legend. Trend-following algorithms don't need an 80% win rate because winning trades are held for huge runs while losers are cut short.",
+    scores: [
+      { text: "< 40%", label: "Choppy Performance", color: "rose" },
+      { text: "40% – 50%", label: "Normal for Trend Models", color: "amber" },
+      { text: "≥ 50%", label: "Excellent for Trend Trading", color: "emerald" }
+    ],
+    strategyTakeaway: "With a 47.5% win rate across 84 cycles, the strategy cuts losing trades quickly (average loss -6.6%) while riding mega-trends (average win +14.6%)."
+  },
+  payoff: {
+    title: "Payoff Ratio (Win / Loss Asymmetry)",
+    category: "ASYMMETRIC REWARD/RISK",
+    icon: "fa-solid fa-arrows-split-up-and-left text-pink",
+    summary: "Average percentage gain on winning trades divided by average percentage loss on losing trades.",
+    analogy: "When you win, you win $2.20; when you lose, you only lose $1.00. That asymmetry is why you don't need a high win rate to get rich.",
+    scores: [
+      { text: "< 1.0", label: "Negative Asymmetry", color: "rose" },
+      { text: "1.5 – 2.0", label: "Solid Risk/Reward", color: "amber" },
+      { text: "≥ 2.0", label: "Asymmetric Gold Standard", color: "emerald" }
+    ],
+    strategyTakeaway: "A 2.20× Payoff Ratio means our winners are more than double the size of our losers, creating massive compound growth over time."
+  },
+  max_dd_duration: {
+    title: "Max Drawdown Duration",
+    category: "RECOVERY ENDURANCE",
+    icon: "fa-solid fa-hourglass-half text-rose",
+    summary: "The longest number of calendar days the strategy took to climb out of a crash and hit a brand new all-time high portfolio balance.",
+    analogy: "If you hike down into a deep canyon during a storm, this is the total time it takes to climb back to the sunny mountain peak.",
+    scores: [
+      { text: "< 365 Days", label: "Fast 1-Year Recovery", color: "emerald" },
+      { text: "1 – 3 Years", label: "Typical for Macro Tech", color: "amber" },
+      { text: "> 4 Years", label: "Severe Prolonged Bear", color: "rose" }
+    ],
+    strategyTakeaway: "Our max recovery was ~1,024 days during the 2021–2024 cycle. By contrast, an investor who bought Cisco in 2000 took over 20 years to recover!"
+  },
+  sma50: {
+    title: "50-Day Moving Average (Exit Trigger)",
+    category: "DYNAMIC TRENDLINE",
+    icon: "fa-solid fa-chart-line text-amber",
+    summary: "The average closing price of the Nasdaq-100 over the past 50 trading sessions (~2.5 months).",
+    analogy: "Like checking a person's 50-day average speed to see if they are still sprinting or have collapsed into exhaustion.",
+    scores: [
+      { text: "Price > SMA50", label: "BULLISH (Hold TQQQ)", color: "emerald" },
+      { text: "Price < SMA50", label: "DEFENSIVE (Exit to Cash)", color: "rose" }
+    ],
+    strategyTakeaway: "Crossing below the 50-day SMA is the primary trigger that moved the strategy safely to 100% Cash before the 2022 tech crash wiped out normal investors."
+  },
+  sma250: {
+    title: "250-Day Moving Average (Macro Baseline)",
+    category: "MACRO REGIME LINE",
+    icon: "fa-solid fa-chart-line text-purple",
+    summary: "The average closing price of the Nasdaq-100 over approximately one full calendar year of trading (250 sessions).",
+    analogy: "The long-term climate vs daily weather. Tells you whether the market is fundamentally in summer (bull) or winter (bear).",
+    scores: [
+      { text: "Price > SMA250", label: "Macro Secular Bull", color: "emerald" },
+      { text: "Price < SMA250", label: "Macro Bear Market", color: "rose" }
+    ],
+    strategyTakeaway: "Used as a master regime filter. In major bear regimes, the strategy remains safely in cash or interest-bearing yields."
+  },
+  hysteresis: {
+    title: "Hysteresis Buffer (1.0× ATR)",
+    category: "ANTI-WHIPSAW PROTECTION",
+    icon: "fa-solid fa-shield text-cyan",
+    summary: "A mathematical safety margin below the 50-day moving average calculated using the 14-day Average True Range (volatility).",
+    analogy: "Your home thermostat doesn't shut the heater off the instant the room hits 70.0°F—it waits until 69°F so your heater doesn't click on and off every 10 seconds.",
+    scores: [
+      { text: "Normal Noise", label: "Buffer Absorbs Drop", color: "cyan" },
+      { text: "Real Crash", label: "Breaks Buffer -> Exit", color: "rose" }
+    ],
+    strategyTakeaway: "Prevents panic selling during normal 1-day dips, saving tens of thousands in whipsaw fees and false exits."
+  },
+  rsi: {
+    title: "RSI (14) Relative Strength Index",
+    category: "MOMENTUM & EXHAUSTION",
+    icon: "fa-solid fa-gauge-high text-pink",
+    summary: "A speedometer measuring the speed and magnitude of recent price moves on a 0 to 100 scale.",
+    analogy: "Like a car tachometer. When the needle revs into the redline (above 75), the engine is overheating and needs to shift gears.",
+    scores: [
+      { text: "< 30", label: "Oversold (Downtrend)", color: "cyan" },
+      { text: "30 – 74", label: "Healthy Momentum", color: "emerald" },
+      { text: "≥ 75", label: "Overbought (Trim 25% to Cash)", color: "rose" }
+    ],
+    strategyTakeaway: "When RSI exceeds 75, our system automatically trims 25% of TQQQ into Cash to bank profits before gravity pulls the market back."
+  },
+  hwm: {
+    title: "High Water Mark (HWM)",
+    category: "PEAK VALUATION",
+    icon: "fa-solid fa-trophy text-amber",
+    summary: "The highest peak dollar balance the portfolio has ever attained in its lifetime.",
+    analogy: "The highest sea-level mark left on the lighthouse cliff after the biggest high tide.",
+    scores: [
+      { text: "At HWM", label: "All-Time High (0% Drawdown)", color: "emerald" },
+      { text: "Below HWM", label: "In Active Drawdown", color: "amber" }
+    ],
+    strategyTakeaway: "Drawdown is always calculated as the distance from this peak. New high water marks reset your safety baseline."
+  },
+  tqqq_sqqq: {
+    title: "TQQQ & SQQQ (3× Leveraged ETFs)",
+    category: "3× LEVERAGED INSTRUMENTS",
+    icon: "fa-solid fa-bolt text-cyan",
+    summary: "Exchange Traded Funds designed to multiply daily Nasdaq-100 returns by +300% (TQQQ) or -300% (SQQQ).",
+    analogy: "A Formula 1 racecar. Blazingly fast in the straightaways (bull markets), but dangerous in hairpin curves without systematic anti-lock brakes.",
+    scores: [
+      { text: "Bull Trend", label: "Hold 100% TQQQ (+3x Boost)", color: "emerald" },
+      { text: "Bear Trend", label: "Hold 100% Cash / Treasury Yield", color: "cyan" }
+    ],
+    strategyTakeaway: "Unhedged TQQQ crashed -82% in 2022. By contrast, our systematic rules moved to 100% Cash at the top, growing +66.8% through risk-free interest and bottom-rebuys."
+  },
+  crisis_alpha: {
+    title: "Crisis Alpha",
+    category: "CRISIS DEFENSE",
+    icon: "fa-solid fa-shield text-emerald",
+    summary: "The ability of a strategy to generate positive returns or protect capital during catastrophic market crashes when everyone else is losing money.",
+    analogy: "Like having a house made of stone when a hurricane blows down all the wooden houses on your block.",
+    scores: [
+      { text: "2022 Bear", label: "Strategy +66.8% vs TQQQ -79.7%", color: "emerald" },
+      { text: "2020 Flash", label: "Exited early, rebought bottom", color: "cyan" }
+    ],
+    strategyTakeaway: "By holding 100% Cash during down markets, you avoid the -80% drawdowns that wipe out buy-and-hold investors."
+  }
+};
+
+let tooltipHideTimeout = null;
+let tooltipPinned = false;
+
+function initEducationalTooltips() {
+  const popover = document.getElementById("quantTooltipPopover");
+  const closeBtn = document.getElementById("qtpCloseBtn");
+  if (!popover) return;
+
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      popover.style.display = "none";
+      tooltipPinned = false;
+    });
+  }
+
+  popover.addEventListener("mouseenter", () => {
+    if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
+  });
+  popover.addEventListener("mouseleave", () => {
+    if (!tooltipPinned) {
+      popover.style.display = "none";
+    }
+  });
+
+  // Delegated mouseover
+  document.addEventListener("mouseover", (e) => {
+    const trigger = e.target.closest("[data-help]");
+    if (!trigger) return;
+    const key = trigger.getAttribute("data-help");
+    if (!key || !QUANT_EXPLANATIONS[key]) return;
+    if (tooltipHideTimeout) clearTimeout(tooltipHideTimeout);
+    showQuantTooltip(key, trigger);
+  });
+
+  // Delegated mouseout
+  document.addEventListener("mouseout", (e) => {
+    const trigger = e.target.closest("[data-help]");
+    if (!trigger) return;
+    if (tooltipPinned) return;
+    tooltipHideTimeout = setTimeout(() => {
+      popover.style.display = "none";
+    }, 180);
+  });
+
+  // Delegated click / tap
+  document.addEventListener("click", (e) => {
+    const trigger = e.target.closest("[data-help]");
+    if (trigger) {
+      const key = trigger.getAttribute("data-help");
+      if (key && QUANT_EXPLANATIONS[key]) {
+        tooltipPinned = true;
+        showQuantTooltip(key, trigger);
+        return;
+      }
+    }
+    if (!e.target.closest("#quantTooltipPopover")) {
+      popover.style.display = "none";
+      tooltipPinned = false;
+    }
+  });
+}
+
+function showQuantTooltip(key, triggerElement) {
+  const item = QUANT_EXPLANATIONS[key];
+  const popover = document.getElementById("quantTooltipPopover");
+  if (!item || !popover) return;
+
+  const badgeEl = document.getElementById("qtpBadge");
+  if (badgeEl) badgeEl.textContent = item.category || "QUANT EDUCATION";
+
+  const titleEl = document.getElementById("qtpTitle");
+  if (titleEl) titleEl.textContent = item.title;
+
+  const sumEl = document.getElementById("qtpSummary");
+  if (sumEl) sumEl.textContent = item.summary;
+
+  const anaEl = document.getElementById("qtpAnalogy");
+  if (anaEl) anaEl.textContent = item.analogy;
+
+  const iconEl = document.getElementById("qtpIcon");
+  if (iconEl) iconEl.className = `${item.icon || "fa-solid fa-graduation-cap"} qtp-icon`;
+
+  const pillsContainer = document.getElementById("qtpScorePills");
+  if (pillsContainer) {
+    pillsContainer.innerHTML = (item.scores || []).map(s => `
+      <div class="qtp-pill ${s.color}">
+        <strong>${s.text}</strong> <span>• ${s.label}</span>
+      </div>
+    `).join("");
+  }
+
+  const takeawayEl = document.getElementById("qtpTakeaway");
+  if (takeawayEl) {
+    takeawayEl.innerHTML = `<strong>STRATEGY IMPACT:</strong> ${item.strategyTakeaway}`;
+  }
+
+  popover.style.display = "block";
+  popover.style.visibility = "hidden";
+
+  const rect = triggerElement.getBoundingClientRect();
+  const popRect = popover.getBoundingClientRect();
+
+  let left = rect.left + (rect.width / 2) - (popRect.width / 2);
+  let top = rect.bottom + 10;
+
+  const margin = 14;
+  if (left < margin) left = margin;
+  if (left + popRect.width > window.innerWidth - margin) {
+    left = window.innerWidth - popRect.width - margin;
+  }
+
+  if (top + popRect.height > window.innerHeight - margin) {
+    top = rect.top - popRect.height - 10;
+  }
+  if (top < margin) top = margin;
+
+  popover.style.left = `${Math.round(left)}px`;
+  popover.style.top = `${Math.round(top)}px`;
+  popover.style.visibility = "visible";
 }
