@@ -341,6 +341,61 @@ function initEventListeners() {
     });
   });
 
+  // Sandbox DCA Frequency & Amount listeners
+  const sbDcaFreq = document.getElementById("sbDcaFreq");
+  const sbDcaAmtInp = document.getElementById("sbDcaAmount");
+  const sbDcaInputWrap = document.getElementById("sbDcaInputWrap");
+  const sbDcaPillsWrap = document.getElementById("sbDcaPillsWrap");
+  const sbDcaSummaryDisplay = document.getElementById("sbDcaSummaryDisplay");
+
+  function updateDcaControlsDisplay() {
+    if (!sbDcaFreq || !sbDcaSummaryDisplay) return;
+    const freq = sbDcaFreq.value;
+    const amt = parseFloat(sbDcaAmtInp ? sbDcaAmtInp.value : 0) || 0;
+
+    if (freq === "none") {
+      sbDcaSummaryDisplay.textContent = "Lump Sum Only";
+      sbDcaSummaryDisplay.className = "sb-val-display font-mono text-muted";
+      if (sbDcaInputWrap) sbDcaInputWrap.style.opacity = "0.35";
+      if (sbDcaPillsWrap) sbDcaPillsWrap.style.opacity = "0.35";
+    } else {
+      if (sbDcaInputWrap) sbDcaInputWrap.style.opacity = "1";
+      if (sbDcaPillsWrap) sbDcaPillsWrap.style.opacity = "1";
+      sbDcaSummaryDisplay.className = "sb-val-display font-mono text-emerald";
+      if (freq === "biweekly") {
+        sbDcaSummaryDisplay.textContent = `+$${amt.toLocaleString()} / 2 Wks`;
+      } else if (freq === "monthly") {
+        sbDcaSummaryDisplay.textContent = `+$${amt.toLocaleString()} / Mo`;
+      } else if (freq === "quarterly") {
+        sbDcaSummaryDisplay.textContent = `+$${amt.toLocaleString()} / Qtr`;
+      }
+    }
+  }
+
+  if (sbDcaFreq) {
+    sbDcaFreq.addEventListener("change", updateDcaControlsDisplay);
+  }
+  if (sbDcaAmtInp) {
+    sbDcaAmtInp.addEventListener("input", () => {
+      const val = parseFloat(sbDcaAmtInp.value);
+      document.querySelectorAll(".sb-dca-pill").forEach(p => {
+        p.classList.toggle("active", parseFloat(p.getAttribute("data-amt")) === val);
+      });
+      updateDcaControlsDisplay();
+    });
+  }
+  document.querySelectorAll(".sb-dca-pill").forEach(pill => {
+    pill.addEventListener("click", () => {
+      document.querySelectorAll(".sb-dca-pill").forEach(p => p.classList.remove("active"));
+      pill.classList.add("active");
+      const amt = pill.getAttribute("data-amt");
+      if (sbDcaAmtInp && amt) {
+        sbDcaAmtInp.value = amt;
+        updateDcaControlsDisplay();
+      }
+    });
+  });
+
   // Run Simulation Button
   const btnRunSandbox = document.getElementById("btnRunSandbox");
   if (btnRunSandbox) {
@@ -2069,6 +2124,54 @@ function formatCurrency(val) {
 /* ==========================================================================
    10. QUANT LAB: CLIENT-SIDE SIMULATION ENGINE & SANDBOX BACKTEST
    ========================================================================== */
+
+/**
+ * Calculates Exact Internal Rate of Return (Money-Weighted Return) via Newton-Raphson
+ * Supports irregular periodic cash inflows (e.g. payroll DCA deposits)
+ */
+function computeXIRR(cashFlows, finalVal, finalDate) {
+  if (!cashFlows || cashFlows.length === 0) return 0;
+  const flows = cashFlows.map(cf => ({ date: cf.date, amount: cf.amount }));
+  flows.push({ date: finalDate, amount: finalVal });
+
+  const d0 = Date.parse(flows[0].date + "T00:00:00Z");
+  const yearFraction = flows.map(f => (Date.parse(f.date + "T00:00:00Z") - d0) / (365.25 * 86400000));
+  const totalYrs = yearFraction[yearFraction.length - 1];
+  if (totalYrs <= 0) return 0;
+
+  function f(r) {
+    let sum = 0;
+    for (let i = 0; i < flows.length; i++) {
+      sum += flows[i].amount / Math.pow(1 + r, yearFraction[i]);
+    }
+    return sum;
+  }
+
+  function df(r) {
+    let sum = 0;
+    for (let i = 0; i < flows.length; i++) {
+      sum -= yearFraction[i] * flows[i].amount / Math.pow(1 + r, yearFraction[i] + 1);
+    }
+    return sum;
+  }
+
+  // Initial estimate
+  let r = 0.15;
+  for (let iter = 0; iter < 50; iter++) {
+    const y = f(r);
+    const dy = df(r);
+    if (Math.abs(dy) < 1e-12) break;
+    const nextR = r - y / dy;
+    if (Math.abs(nextR - r) < 1e-6) {
+      r = nextR;
+      break;
+    }
+    r = Math.max(-0.99, nextR);
+  }
+
+  return isNaN(r) ? 0 : r * 100;
+}
+
 function runClientSideSimulation() {
   const modelObj = (cachedData && cachedData.models && cachedData.models.symmetric_atr) ? cachedData.models.symmetric_atr : cachedData;
   const allDaily = (modelObj && modelObj.daily_summary) || (cachedData && cachedData.daily_summary) || [];
@@ -2080,6 +2183,11 @@ function runClientSideSimulation() {
 
   // 1. Read Controls
   const capInput = parseFloat(document.getElementById("sbCapital").value) || 10000;
+  const dcaFreq = document.getElementById("sbDcaFreq") ? document.getElementById("sbDcaFreq").value : "none";
+  const dcaAmtInp = parseFloat(document.getElementById("sbDcaAmount") ? document.getElementById("sbDcaAmount").value : 0) || 0;
+  const isDcaActive = (dcaFreq !== "none" && dcaAmtInp > 0);
+  const dcaAmt = isDcaActive ? dcaAmtInp : 0;
+
   const startDate = document.getElementById("sbStartDate").value || "2010-02-11";
   const endDate = document.getElementById("sbEndDate").value || "2026-03-30";
   const smaPeriod = parseInt(document.getElementById("sbSmaPeriod").value, 10) || 50;
@@ -2137,11 +2245,17 @@ function runClientSideSimulation() {
   // 5. Run Day-by-Day Simulation
   const rfDaily = Math.pow(1 + 0.045, 1 / 252) - 1;
   let curCapital = capInput;
+  let benchCapital = capInput;
+  let totalInvested = capInput;
   let position = "CASH";
   let tqqqWeight = 0;
   const simResults = [];
   const cycles = [];
   let activeCycle = null;
+  const cashFlows = [{ date: allDaily[startIndex].date, amount: -capInput }];
+
+  let lastDcaDateStr = allDaily[startIndex].date;
+  let lastDcaMonthStr = allDaily[startIndex].date.slice(0, 7);
 
   for (let i = startIndex; i <= endIndex; i++) {
     const cur = allDaily[i];
@@ -2161,6 +2275,11 @@ function runClientSideSimulation() {
       rBear = -3 * rNdx;
     }
 
+    // Benchmark daily return (Symmetric ATR benchmark from allDaily)
+    const benchPrev = prev.total_value || capInput;
+    const benchCur = cur.total_value || capInput;
+    const rBench = benchPrev > 0 ? (benchCur - benchPrev) / benchPrev : 0;
+
     // Apply asset returns based on prior day's holding
     if (i > startIndex) {
       if (position === "TQQQ") {
@@ -2170,6 +2289,35 @@ function runClientSideSimulation() {
       } else {
         curCapital = Math.max(0.01, curCapital * (1 + rBear));
       }
+      benchCapital = Math.max(0.01, benchCapital * (1 + rBench));
+    }
+
+    // Evaluate DCA contribution today
+    let isDcaDay = false;
+    if (isDcaActive && i > startIndex) {
+      if (dcaFreq === "biweekly") {
+        const msCur = Date.parse(cur.date + "T00:00:00Z");
+        const msPrev = Date.parse(lastDcaDateStr + "T00:00:00Z");
+        const diffDays = Math.round((msCur - msPrev) / 86400000);
+        if (diffDays >= 14) isDcaDay = true;
+      } else if (dcaFreq === "monthly") {
+        const curMonth = cur.date.slice(0, 7);
+        if (curMonth !== lastDcaMonthStr) isDcaDay = true;
+      } else if (dcaFreq === "quarterly") {
+        const msCur = Date.parse(cur.date + "T00:00:00Z");
+        const msPrev = Date.parse(lastDcaDateStr + "T00:00:00Z");
+        const diffDays = Math.round((msCur - msPrev) / 86400000);
+        if (diffDays >= 90) isDcaDay = true;
+      }
+    }
+
+    if (isDcaDay) {
+      totalInvested += dcaAmt;
+      curCapital += dcaAmt;
+      benchCapital += dcaAmt;
+      cashFlows.push({ date: cur.date, amount: -dcaAmt });
+      lastDcaDateStr = cur.date;
+      lastDcaMonthStr = cur.date.slice(0, 7);
     }
 
     // Evaluate signals on today's close
@@ -2217,6 +2365,8 @@ function runClientSideSimulation() {
     simResults.push({
       date: cur.date,
       total_value: curCapital,
+      total_invested: totalInvested,
+      bench_value: benchCapital,
       position: position,
       ndx_price: cur.ndx_price,
       tqqq_buyhold_pnl_pct: cur.tqqq_buyhold_pnl_pct
@@ -2237,9 +2387,17 @@ function runClientSideSimulation() {
 
   // 6. Compute Quant Risk & Performance Metrics
   const finalVal = curCapital;
-  const totalReturnPct = ((finalVal / capInput) - 1) * 100;
+  const netProfitDollar = finalVal - totalInvested;
+  const roicPct = totalInvested > 0 ? (netProfitDollar / totalInvested) * 100 : 0;
+  const wealthMultiplier = totalInvested > 0 ? (finalVal / totalInvested) : 0;
+
   const nYears = simResults.length / 252;
-  const cagr = nYears > 0 ? (Math.pow(finalVal / capInput, 1 / nYears) - 1) * 100 : 0;
+  let cagr = 0;
+  if (!isDcaActive) {
+    cagr = nYears > 0 ? (Math.pow(finalVal / capInput, 1 / nYears) - 1) * 100 : 0;
+  } else {
+    cagr = computeXIRR(cashFlows, finalVal, simResults[simResults.length - 1].date);
+  }
 
   // Daily returns for Sharpe
   const dailyReturns = [];
@@ -2264,46 +2422,57 @@ function runClientSideSimulation() {
   const wins = cycles.filter(c => c.pnlDollar > 0);
   const winRate = cycles.length > 0 ? (wins.length / cycles.length) * 100 : 0;
 
-  // 7. Benchmark Reference (Symmetric 1.0x ATR)
-  const benchDaily = (cachedData && cachedData.models && cachedData.models.symmetric_atr && cachedData.models.symmetric_atr.daily_summary) || allDaily;
-  const bSlice = benchDaily.filter(r => r.date >= startDate && r.date <= endDate);
-  let benchVal = capInput * 44.6;
-  let benchRet = 4360.9;
-  let benchCagr = 25.7;
-  let benchSharpe = 0.64;
-  let benchMaxDd = -52.3;
-  let benchWinRate = 47.5;
-  let benchCycleCount = 84;
-
-  if (bSlice.length >= 2) {
-    const bStart = bSlice[0].total_value;
-    const bEnd = bSlice[bSlice.length - 1].total_value;
-    benchVal = capInput * (bEnd / bStart);
-    benchRet = ((bEnd / bStart) - 1) * 100;
-    const bYears = bSlice.length / 252;
-    benchCagr = bYears > 0 ? (Math.pow(bEnd / bStart, 1 / bYears) - 1) * 100 : 0;
-    
-    let bHwm = bSlice[0].total_value;
-    let bDd = 0;
-    bSlice.forEach(r => {
-      if (r.total_value > bHwm) bHwm = r.total_value;
-      const d = ((r.total_value - bHwm) / bHwm) * 100;
-      if (d < bDd) bDd = d;
-    });
-    benchMaxDd = bDd;
+  // 7. Benchmark Reference (Symmetric 1.0x ATR Model with identical DCA schedule)
+  const benchFinal = benchCapital;
+  const benchNetProfit = benchFinal - totalInvested;
+  const benchRoicPct = totalInvested > 0 ? (benchNetProfit / totalInvested) * 100 : 0;
+  const benchMultiplier = totalInvested > 0 ? (benchFinal / totalInvested) : 0;
+  let benchCagr = 0;
+  if (!isDcaActive) {
+    benchCagr = nYears > 0 ? (Math.pow(benchFinal / capInput, 1 / nYears) - 1) * 100 : 0;
+  } else {
+    benchCagr = computeXIRR(cashFlows, benchFinal, simResults[simResults.length - 1].date);
   }
+
+  let bHwm = capInput;
+  let benchMaxDd = 0;
+  simResults.forEach(r => {
+    if (r.bench_value > bHwm) bHwm = r.bench_value;
+    const d = ((r.bench_value - bHwm) / bHwm) * 100;
+    if (d < benchMaxDd) benchMaxDd = d;
+  });
+  const benchSharpe = 0.64;
+  const benchWinRate = 47.5;
+  const benchCycleCount = 84;
 
   // 8. Update Scorecard DOM
   const elResVal = document.getElementById("sbResValue");
   if (elResVal) elResVal.textContent = formatCurrency(finalVal);
   const elBenchVal = document.getElementById("sbBenchValue");
-  if (elBenchVal) elBenchVal.textContent = `Benchmark: ${formatCurrency(benchVal)}`;
+  if (elBenchVal) elBenchVal.textContent = `Benchmark: ${formatCurrency(benchFinal)}`;
+
+  const elResInvested = document.getElementById("sbResInvested");
+  if (elResInvested) elResInvested.textContent = formatCurrency(totalInvested);
+  const elBenchInvested = document.getElementById("sbBenchInvested");
+  if (elBenchInvested) {
+    elBenchInvested.textContent = !isDcaActive
+      ? "Lump Sum Initial"
+      : `$${Math.round(capInput).toLocaleString()} start + $${Math.round(totalInvested - capInput).toLocaleString()} DCA`;
+  }
 
   const elResRet = document.getElementById("sbResReturn");
-  if (elResRet) elResRet.textContent = `${totalReturnPct >= 0 ? '+' : ''}${totalReturnPct.toFixed(1)}%`;
+  if (elResRet) {
+    elResRet.textContent = `${netProfitDollar >= 0 ? '+' : ''}${formatCurrency(netProfitDollar)} (${roicPct >= 0 ? '+' : ''}${roicPct.toFixed(1)}%)`;
+  }
   const elBenchRet = document.getElementById("sbBenchReturn");
-  if (elBenchRet) elBenchRet.textContent = `Benchmark: ${benchRet >= 0 ? '+' : ''}${benchRet.toFixed(1)}%`;
+  if (elBenchRet) {
+    elBenchRet.textContent = `Benchmark: ${benchNetProfit >= 0 ? '+' : ''}${formatCurrency(benchNetProfit)} (${benchRoicPct >= 0 ? '+' : ''}${benchRoicPct.toFixed(1)}%)`;
+  }
 
+  const elCagrLabel = document.getElementById("sbCagrLabel");
+  if (elCagrLabel) {
+    elCagrLabel.textContent = `ANNUALIZED RETURN (${isDcaActive ? 'IRR / MWR' : 'CAGR'})`;
+  }
   const elResCagr = document.getElementById("sbResCagr");
   if (elResCagr) elResCagr.textContent = `${cagr >= 0 ? '+' : ''}${cagr.toFixed(1)}%`;
   const elBenchCagr = document.getElementById("sbBenchCagr");
@@ -2319,27 +2488,32 @@ function runClientSideSimulation() {
   const elBenchMaxDd = document.getElementById("sbBenchMaxDd");
   if (elBenchMaxDd) elBenchMaxDd.textContent = `Benchmark: ${benchMaxDd.toFixed(1)}%`;
 
+  const elResMultiplier = document.getElementById("sbResMultiplier");
+  if (elResMultiplier) elResMultiplier.textContent = `${wealthMultiplier.toFixed(1)}×`;
+  const elBenchMultiplier = document.getElementById("sbBenchMultiplier");
+  if (elBenchMultiplier) elBenchMultiplier.textContent = `Benchmark: ${benchMultiplier.toFixed(1)}×`;
+
   const elResWin = document.getElementById("sbResWinRate");
   if (elResWin) elResWin.textContent = `${winRate.toFixed(1)}% (${wins.length}W / ${cycles.length - wins.length}L)`;
   const elBenchWin = document.getElementById("sbBenchWinRate");
   if (elBenchWin) elBenchWin.textContent = `Benchmark: ${benchWinRate.toFixed(1)}% (${benchCycleCount} Cycles)`;
 
   // 9. Draw preview chart
-  renderSandboxPreviewChart(simResults);
+  renderSandboxPreviewChart(simResults, isDcaActive);
 
   // Store in global memory for Overlay & CSV export
   window._lastSandboxResult = {
-    name: `Sandbox Model (SMA${smaPeriod}, ${bufferType.replace(/_/g, ' ')})`,
+    name: `Sandbox Model (SMA${smaPeriod}, ${bufferType.replace(/_/g, ' ')}${isDcaActive ? ', DCA ' + dcaFreq : ''})`,
     records: simResults,
     cycles: cycles,
-    metrics: { finalVal, totalReturnPct, cagr, sharpe, maxDd, winRate }
+    metrics: { finalVal, totalInvested, netProfitDollar, roicPct, wealthMultiplier, cagr, sharpe, maxDd, winRate }
   };
 }
 
 /* ==========================================================================
    11. SANDBOX PREVIEW MINI-CHART
    ========================================================================== */
-function renderSandboxPreviewChart(simRecords) {
+function renderSandboxPreviewChart(simRecords, isDcaActive) {
   const canvas = document.getElementById("sbPreviewChart");
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
@@ -2364,38 +2538,65 @@ function renderSandboxPreviewChart(simRecords) {
 
   const labels = dataPoints.map(r => r.date);
   const values = dataPoints.map(r => r.total_value);
+  const investedValues = dataPoints.map(r => r.total_invested || 0);
 
   const grad = ctx.createLinearGradient(0, 0, 0, 200);
   grad.addColorStop(0, "rgba(168, 85, 247, 0.35)");
   grad.addColorStop(1, "rgba(0, 242, 254, 0.0)");
 
+  const datasets = [
+    {
+      label: "Portfolio Wealth",
+      data: values,
+      borderColor: "#C084FC",
+      borderWidth: 2,
+      backgroundColor: grad,
+      fill: true,
+      pointRadius: 0,
+      tension: 0.15
+    }
+  ];
+
+  if (isDcaActive) {
+    datasets.push({
+      label: "Invested Principal (Savings)",
+      data: investedValues,
+      borderColor: "#38BDF8",
+      borderWidth: 1.8,
+      borderDash: [5, 4],
+      backgroundColor: "transparent",
+      fill: false,
+      pointRadius: 0,
+      tension: 0.05
+    });
+  }
+
   sbPreviewChartInstance = new Chart(ctx, {
     type: "line",
     data: {
       labels: labels,
-      datasets: [
-        {
-          label: "Sandbox Equity",
-          data: values,
-          borderColor: "#C084FC",
-          borderWidth: 2,
-          backgroundColor: grad,
-          fill: true,
-          pointRadius: 0,
-          tension: 0.15
-        }
-      ]
+      datasets: datasets
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
+        legend: {
+          display: !!isDcaActive,
+          position: "top",
+          align: "end",
+          labels: {
+            boxWidth: 12,
+            boxHeight: 3,
+            color: "#94A3B8",
+            font: { family: "JetBrains Mono", size: 10 }
+          }
+        },
         tooltip: {
           mode: "index",
           intersect: false,
           callbacks: {
-            label: (ctx) => `Portfolio: $${ctx.parsed.y.toLocaleString("en-US", { maximumFractionDigits: 0 })}`
+            label: (ctx) => `${ctx.dataset.label}: $${Math.round(ctx.parsed.y).toLocaleString("en-US")}`
           }
         }
       },
@@ -2411,7 +2612,7 @@ function renderSandboxPreviewChart(simRecords) {
           ticks: {
             color: "#64748B",
             font: { family: "JetBrains Mono", size: 10 },
-            callback: (v) => `$${(v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v)}`
+            callback: (v) => `$${(v >= 1000000 ? (v / 1000000).toFixed(1) + 'M' : (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v))}`
           }
         }
       }
@@ -2428,9 +2629,11 @@ function exportSandboxCsv() {
     return;
   }
   const records = window._lastSandboxResult.records;
-  let csv = "Date,Portfolio_Value,Position,NDX_Price,TQQQ_PnL_Pct\n";
+  let csv = "Date,Portfolio_Value,Total_Invested,Net_Profit,Position,NDX_Price,TQQQ_PnL_Pct\n";
   records.forEach(r => {
-    csv += `${r.date},${r.total_value.toFixed(2)},${r.position},${r.ndx_price.toFixed(2)},${(r.tqqq_buyhold_pnl_pct || 0).toFixed(2)}\n`;
+    const inv = r.total_invested || 0;
+    const profit = r.total_value - inv;
+    csv += `${r.date},${r.total_value.toFixed(2)},${inv.toFixed(2)},${profit.toFixed(2)},${r.position},${r.ndx_price.toFixed(2)},${(r.tqqq_buyhold_pnl_pct || 0).toFixed(2)}\n`;
   });
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -2449,6 +2652,19 @@ function exportSandboxCsv() {
    13. EDUCATIONAL QUANT EXPLANATIONS & INTERACTIVE TOOLTIP SYSTEM
    ========================================================================== */
 const QUANT_EXPLANATIONS = {
+  dca: {
+    title: "Dollar-Cost Averaging (DCA Plan)",
+    category: "WEALTH ACCUMULATION STRATEGY",
+    icon: "fa-solid fa-piggy-bank text-emerald",
+    summary: "Investing a fixed dollar amount into the market at disciplined, recurring intervals (e.g. $500 from every paycheck) regardless of whether stock prices are surging or crashing.",
+    analogy: "Like shopping for groceries every week: when prices go on sale, your fixed budget buys more food for the same dollars. When prices spike, you automatically buy fewer units. You never have to predict what the market will do next week.",
+    scores: [
+      { text: "Lump Sum", label: "Timing Sensitive (High Variance)", color: "cyan" },
+      { text: "Bi-Weekly DCA", label: "Payroll Matched (Zero Stress)", color: "emerald" },
+      { text: "DCA + Quant", label: "Dry-Powder Supercharger", color: "purple" }
+    ],
+    strategyTakeaway: "In traditional Buy & Hold, DCA during bear markets suffers relentless leverage decay. With our Quant Strategy, bear-market DCA deposits accumulate safely as cash/Treasury dry powder—deploying in bulk the moment the bull market resumes!"
+  },
   sortino: {
     title: "Sortino Ratio",
     category: "RISK-ADJUSTED EFFICIENCY",
