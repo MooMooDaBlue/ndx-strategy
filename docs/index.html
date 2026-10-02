@@ -65,6 +65,11 @@
           <span>Sync</span>
         </button>
 
+        <button class="btn-share" id="btnShareUrl" title="Share or bookmark this dashboard view">
+          <i class="fa-solid fa-share-nodes"></i>
+          <span>Share</span>
+        </button>
+
         <div class="auto-sync-status">
           <span class="pulse-green"></span>
           <span class="sync-text">Auto-Sync On (10s)</span>
@@ -150,6 +155,81 @@
         </div>
       </div>
     </section>
+ 
+    <!-- Institutional Quant Risk & Quality Metrics Strip -->
+    <section class="quant-metrics-strip" id="quantMetricsStrip">
+      <div class="quant-metric-card" title="Annualized excess return per unit of total risk (Rf = 4.5%)">
+        <div class="qm-header">
+          <span class="qm-label">SHARPE RATIO</span>
+          <i class="fa-solid fa-calculator qm-icon text-cyan"></i>
+        </div>
+        <div class="qm-value text-cyan" id="qmSharpe">--</div>
+        <div class="qm-footer">Rf Benchmark: 4.5%</div>
+      </div>
+
+      <div class="quant-metric-card" title="Risk-adjusted return penalizing only downside volatility">
+        <div class="qm-header">
+          <span class="qm-label">SORTINO RATIO</span>
+          <i class="fa-solid fa-chart-line-up qm-icon text-emerald"></i>
+        </div>
+        <div class="qm-value text-emerald" id="qmSortino">--</div>
+        <div class="qm-footer">Downside Risk Focus</div>
+      </div>
+
+      <div class="quant-metric-card" title="Compound Annual Growth Rate divided by Maximum Drawdown">
+        <div class="qm-header">
+          <span class="qm-label">CALMAR RATIO</span>
+          <i class="fa-solid fa-shield-halved qm-icon text-purple"></i>
+        </div>
+        <div class="qm-value text-purple" id="qmCalmar">--</div>
+        <div class="qm-footer">CAGR / Max DD</div>
+      </div>
+
+      <div class="quant-metric-card" title="16-Year Compound Annual Growth Rate">
+        <div class="qm-header">
+          <span class="qm-label">16Y CAGR</span>
+          <i class="fa-solid fa-seedling qm-icon text-amber"></i>
+        </div>
+        <div class="qm-value text-amber" id="qmCagr">--</div>
+        <div class="qm-footer">Annual Compounded</div>
+      </div>
+
+      <div class="quant-metric-card" title="Ratio of gross trading profits to gross trading losses">
+        <div class="qm-header">
+          <span class="qm-label">PROFIT FACTOR</span>
+          <i class="fa-solid fa-scale-balanced qm-icon text-cyan"></i>
+        </div>
+        <div class="qm-value text-cyan" id="qmProfitFactor">--</div>
+        <div class="qm-footer" id="qmProfitFactorSub">Gross Win / Gross Loss</div>
+      </div>
+
+      <div class="quant-metric-card" title="Percentage of completed trade cycles that were profitable">
+        <div class="qm-header">
+          <span class="qm-label">CYCLE WIN RATE</span>
+          <i class="fa-solid fa-bullseye qm-icon text-emerald"></i>
+        </div>
+        <div class="qm-value text-emerald" id="qmWinRate">--</div>
+        <div class="qm-footer" id="qmWinLossCount">-- Wins / -- Losses</div>
+      </div>
+
+      <div class="quant-metric-card" title="Average percentage gain on winning trades vs average loss on losing trades">
+        <div class="qm-header">
+          <span class="qm-label">PAYOFF RATIO</span>
+          <i class="fa-solid fa-arrows-split-up-and-left qm-icon text-pink"></i>
+        </div>
+        <div class="qm-value text-pink" id="qmPayoffRatio">--</div>
+        <div class="qm-footer" id="qmPayoffSub">Avg Win vs Avg Loss</div>
+      </div>
+
+      <div class="quant-metric-card" title="Longest continuous drawdown recovery period">
+        <div class="qm-header">
+          <span class="qm-label">MAX DD DURATION</span>
+          <i class="fa-solid fa-hourglass-half qm-icon text-rose"></i>
+        </div>
+        <div class="qm-value text-rose" id="qmMaxDdDuration">--</div>
+        <div class="qm-footer">Peak to Recovery</div>
+      </div>
+    </section>
 
     <!-- Strategy Model Selector Bar -->
     <section class="model-selector-bar">
@@ -226,6 +306,7 @@
               <button class="tab-btn active" data-tab="equity"><i class="fa-solid fa-chart-line"></i> Portfolio Equity & Benchmarks</button>
               <button class="tab-btn" data-tab="technicals"><i class="fa-solid fa-chart-simple"></i> NDX vs SMAs</button>
               <button class="tab-btn" data-tab="rsi"><i class="fa-solid fa-wave-square"></i> RSI(14) Momentum</button>
+              <button class="tab-btn" data-tab="drawdown"><i class="fa-solid fa-water"></i> Drawdown Profile</button>
             </div>
             
             <div class="timeframe-group">
@@ -248,22 +329,122 @@
           </div>
         </div>
 
-        <!-- Strategy Trade Log Table -->
+        <!-- Annual Performance & Crisis Alpha Matrix -->
+        <div class="panel-card annual-matrix-panel">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <i class="fa-solid fa-calendar-check panel-icon text-emerald"></i>
+              <div>
+                <h3 class="panel-title">Annual Performance & Crisis Alpha Matrix</h3>
+                <span class="panel-subtitle">Calendar-year audited returns & stress-test comparisons (2010–2026)</span>
+              </div>
+            </div>
+            <div class="matrix-filter-group">
+              <button class="matrix-toggle-btn active" id="btnMatrixAll" data-view="all">All 17 Years</button>
+              <button class="matrix-toggle-btn" id="btnMatrixCrisis" data-view="crisis">
+                <i class="fa-solid fa-triangle-exclamation"></i> Crisis Stress Tests
+              </button>
+            </div>
+          </div>
+
+          <!-- Crisis Alpha Highlight Cards -->
+          <div class="crisis-cards-grid">
+            <div class="crisis-card">
+              <div class="crisis-year"><i class="fa-solid fa-shield"></i> 2022 TECH BEAR MARKET</div>
+              <div class="crisis-comparison">
+                <div class="crisis-stat">
+                  <span class="cs-label">TQQQ Unhedged</span>
+                  <span class="cs-val text-rose">-79.7%</span>
+                </div>
+                <div class="crisis-arrow"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
+                <div class="crisis-stat">
+                  <span class="cs-label">Strategy (Active)</span>
+                  <span class="cs-val text-emerald" id="crisis2022Val">+66.8%</span>
+                </div>
+              </div>
+              <div class="crisis-alpha-pill" id="crisis2022Pill">+100.5% Alpha Generated</div>
+            </div>
+
+            <div class="crisis-card">
+              <div class="crisis-year"><i class="fa-solid fa-bolt"></i> 2020 COVID FLASH CRASH</div>
+              <div class="crisis-comparison">
+                <div class="crisis-stat">
+                  <span class="cs-label">NASDAQ-100</span>
+                  <span class="cs-val text-muted">+45.3%</span>
+                </div>
+                <div class="crisis-arrow"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
+                <div class="crisis-stat">
+                  <span class="cs-label">Strategy (Active)</span>
+                  <span class="cs-val text-emerald" id="crisis2020Val">+129.8%</span>
+                </div>
+              </div>
+              <div class="crisis-alpha-pill" id="crisis2020Pill">+84.5% Alpha Generated</div>
+            </div>
+
+            <div class="crisis-card">
+              <div class="crisis-year"><i class="fa-solid fa-chart-line-down"></i> 2018 VOLMAGEDDON & Q4</div>
+              <div class="crisis-comparison">
+                <div class="crisis-stat">
+                  <span class="cs-label">TQQQ Unhedged</span>
+                  <span class="cs-val text-rose">-23.7%</span>
+                </div>
+                <div class="crisis-arrow"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
+                <div class="crisis-stat">
+                  <span class="cs-label">Strategy (Active)</span>
+                  <span class="cs-val text-emerald" id="crisis2018Val">+14.3%</span>
+                </div>
+              </div>
+              <div class="crisis-alpha-pill" id="crisis2018Pill">+38.0% vs TQQQ</div>
+            </div>
+          </div>
+
+          <div class="matrix-table-container">
+            <table class="matrix-table" id="annualMatrixTable">
+              <thead>
+                <tr>
+                  <th>Year</th>
+                  <th>Strategy (Active)</th>
+                  <th>Strategy (Alt)</th>
+                  <th>NDX Buy & Hold</th>
+                  <th>TQQQ Buy & Hold</th>
+                  <th>Alpha vs NDX</th>
+                  <th>Max DD in Year</th>
+                  <th>Outcome</th>
+                </tr>
+              </thead>
+              <tbody id="annualMatrixBody">
+                <tr><td colspan="8" class="text-center text-muted">Calculating annual performance matrix...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Strategy Trade Log Table / Round-Trip Inspector -->
         <div class="panel-card table-panel">
           <div class="panel-header">
             <div class="panel-title-group">
               <i class="fa-solid fa-receipt panel-icon"></i>
               <div>
-                <h3 class="panel-title">Execution Trade Log</h3>
-                <span class="panel-subtitle">Audited execution history (2010–2026)</span>
+                <h3 class="panel-title">Trade Intelligence & Execution History</h3>
+                <span class="panel-subtitle">Audited trade execution & round-trip cycle analysis (2010–2026)</span>
               </div>
             </div>
+
+            <!-- View Switcher -->
+            <div class="trade-view-switcher">
+              <button class="tview-btn active" id="btnViewCycles" data-view="cycles">
+                <i class="fa-solid fa-repeat"></i> Completed Cycles (<span id="countCycles">--</span>)
+              </button>
+              <button class="tview-btn" id="btnViewExecutions" data-view="executions">
+                <i class="fa-solid fa-list-check"></i> Raw Order Fills (<span id="countExecutions">--</span>)
+              </button>
+            </div>
+
             <div class="table-filters-group">
               <select id="tradeActionFilter" class="table-select-filter">
-                <option value="ALL">All Actions</option>
-                <option value="BUY">BUY (100%)</option>
-                <option value="SELL">SELL / CASH</option>
-                <option value="ADJUST">TRIM (30%/50%)</option>
+                <option value="ALL">All Outcomes</option>
+                <option value="WIN">WIN Trades</option>
+                <option value="LOSS">LOSS Trades</option>
               </select>
               <select id="tradeYearFilter" class="table-select-filter">
                 <option value="ALL">All Years</option>
@@ -272,25 +453,48 @@
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" id="tradeSearchInput" placeholder="Filter trades...">
               </div>
+              <button class="btn-export-csv" id="btnExportCsv" title="Export current table view to CSV">
+                <i class="fa-solid fa-file-arrow-down"></i>
+                <span>CSV</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Round-Trip Cycles Summary Bar -->
+          <div class="cycles-summary-bar" id="cyclesSummaryBar">
+            <div class="csb-item">
+              <span class="csb-label">CYCLES</span>
+              <span class="csb-val text-cyan" id="csbCycles">--</span>
+            </div>
+            <div class="csb-item">
+              <span class="csb-label">WIN RATE</span>
+              <span class="csb-val text-emerald" id="csbWinRate">--</span>
+            </div>
+            <div class="csb-item">
+              <span class="csb-label">PROFIT FACTOR</span>
+              <span class="csb-val text-cyan" id="csbProfitFactor">--</span>
+            </div>
+            <div class="csb-item">
+              <span class="csb-label">AVG WIN</span>
+              <span class="csb-val text-emerald" id="csbAvgWin">--</span>
+            </div>
+            <div class="csb-item">
+              <span class="csb-label">AVG LOSS</span>
+              <span class="csb-val text-rose" id="csbAvgLoss">--</span>
+            </div>
+            <div class="csb-item">
+              <span class="csb-label">AVG DURATION</span>
+              <span class="csb-val font-mono" id="csbAvgDuration">--</span>
             </div>
           </div>
 
           <div class="table-scroll-container">
             <table class="data-table" id="tradeTable">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Action</th>
-                  <th>Ticker</th>
-                  <th>Shares</th>
-                  <th>Execution Price</th>
-                  <th>Total Value</th>
-                  <th>NDX Level</th>
-                  <th>Reason</th>
-                </tr>
+              <thead id="tradeTableHead">
+                <!-- Dynamically populated by JS based on cycles vs executions -->
               </thead>
               <tbody id="tradeTableBody">
-                <tr><td colspan="8" class="text-center text-muted">Loading trade history...</td></tr>
+                <tr><td colspan="9" class="text-center text-muted">Loading trade history...</td></tr>
               </tbody>
             </table>
           </div>
@@ -301,6 +505,60 @@
       <!-- Right Column: Sidebar Metrics, Gauges & Live Terminal -->
       <div class="col-sidebar">
         
+        <!-- Forward-Looking Trigger Radar -->
+        <div class="panel-card radar-panel">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <i class="fa-solid fa-crosshairs panel-icon text-cyan"></i>
+              <div>
+                <h3 class="panel-title">Forward Trigger Radar</h3>
+                <span class="panel-subtitle">Next-session execution thresholds</span>
+              </div>
+            </div>
+            <span class="radar-live-badge"><span class="pulse-cyan"></span> ACTIVE WATCH</span>
+          </div>
+
+          <div class="radar-body">
+            <!-- Exit Trigger Threshold -->
+            <div class="radar-item">
+              <div class="radar-item-top">
+                <div class="radar-badge badge-exit"><i class="fa-solid fa-arrow-down"></i> DOWNSIDE EXIT TO CASH</div>
+                <span class="radar-target font-mono" id="radarExitPrice">NDX --</span>
+              </div>
+              <div class="radar-metric-row">
+                <span class="radar-label">Distance to Stop</span>
+                <span class="radar-cushion font-mono" id="radarExitDistance">-- pts (--%)</span>
+              </div>
+              <div class="radar-condition" id="radarExitCondition">Requires NDX close below exit line</div>
+            </div>
+
+            <!-- Overbought Trim Threshold -->
+            <div class="radar-item">
+              <div class="radar-item-top">
+                <div class="radar-badge badge-trim"><i class="fa-solid fa-scissors"></i> RSI 75 OVERBOUGHT TRIM</div>
+                <span class="radar-target font-mono" id="radarRsiTarget">RSI &ge; 75.0</span>
+              </div>
+              <div class="radar-metric-row">
+                <span class="radar-label">Momentum Headroom</span>
+                <span class="radar-cushion text-pink font-mono" id="radarRsiHeadroom">-- pts remaining</span>
+              </div>
+              <div class="radar-condition">Automatic position derisking to 30% TQQQ</div>
+            </div>
+
+            <!-- Regime Streak & ATH Proximity -->
+            <div class="radar-stats-grid">
+              <div class="radar-mini-stat">
+                <span class="radar-mini-label">Regime Streak</span>
+                <span class="radar-mini-val text-cyan font-mono" id="radarRegimeStreak">-- days</span>
+              </div>
+              <div class="radar-mini-stat">
+                <span class="radar-mini-label">ATH Proximity</span>
+                <span class="radar-mini-val font-mono" id="radarAthProximity">--</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Strategy Telemetry Gauges -->
         <div class="panel-card sidebar-panel">
           <div class="panel-header">
@@ -430,6 +688,9 @@
     </footer>
 
   </div>
+
+  <!-- Toast Notification Hub -->
+  <div id="toastContainer" class="toast-container"></div>
 
   <script src="app.js"></script>
 </body>

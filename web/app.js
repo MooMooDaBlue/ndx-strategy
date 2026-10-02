@@ -1,27 +1,124 @@
 /**
- * NDX Quantitative Strategy — Client-Side Application
- * Provides real-time telemetry, Chart.js visualizations, interactive capital simulation,
- * multi-era stress testing, and terminal streaming.
+ * NDX Quantitative Strategy — Institutional Terminal Application
+ * Features:
+ *  - Real-time Telemetry & Market Status Clock
+ *  - Dual Strategy Model Simulation & Side-by-Side Overlay
+ *  - Institutional Quant Performance & Risk Metrics (Sharpe, Sortino, Calmar, CAGR)
+ *  - Annual Performance & Crisis Alpha Matrix (2010–2026)
+ *  - Interactive Drawdown & Underwater Profile Visualizer
+ *  - Forward-Looking Trigger Radar with Next-Session Thresholds
+ *  - Completed Round-Trip Trade Inspector & Raw Fill Explorer
+ *  - One-Click CSV Export & Deep-Linking Shareable URL State
  */
 
+// App State
 let currentTab = "equity";
 let currentTimeframe = "ALL";
 let currentModel = "symmetric_atr";
+let currentTradeView = "cycles"; // 'cycles' or 'executions'
+let currentMatrixView = "all";   // 'all' or 'crisis'
 let overlayBothModels = true;
 let simulatedCapital = 10000;
 let cachedData = null;
 let chartInstance = null;
 let autoRefreshTimer = null;
 
-// Clock and countdown timers
+// Real-time Clock interval
 setInterval(updateClocks, 1000);
 
 document.addEventListener("DOMContentLoaded", () => {
+  parseUrlParams();
   initEventListeners();
   fetchDashboardData();
   startAutoRefresh();
 });
 
+/* ==========================================================================
+   URL PARAMETERS & DEEP LINKING
+   ========================================================================== */
+function parseUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+
+  if (params.has("model")) {
+    const m = params.get("model");
+    if (m === "symmetric_atr" || m === "original_agile") {
+      currentModel = m;
+      document.querySelectorAll(".model-toggle-btn").forEach(b => {
+        b.classList.toggle("active", b.getAttribute("data-model") === m);
+      });
+    }
+  }
+
+  if (params.has("cap")) {
+    const c = parseFloat(params.get("cap"));
+    if (!isNaN(c) && c > 0) {
+      simulatedCapital = c;
+      const inp = document.getElementById("simCustomCapital");
+      if (inp) inp.value = c;
+      document.querySelectorAll(".sim-btn").forEach(b => {
+        b.classList.toggle("active", parseFloat(b.getAttribute("data-amt")) === c);
+      });
+    }
+  }
+
+  if (params.has("tf")) {
+    const tf = params.get("tf").toUpperCase();
+    if (["1M", "6M", "1Y", "5Y", "2022", "2020", "ALL"].includes(tf)) {
+      currentTimeframe = tf;
+      document.querySelectorAll(".tf-btn").forEach(b => {
+        b.classList.toggle("active", b.getAttribute("data-tf") === tf);
+      });
+    }
+  }
+
+  if (params.has("tab")) {
+    const tb = params.get("tab").toLowerCase();
+    if (["equity", "technicals", "rsi", "drawdown"].includes(tb)) {
+      currentTab = tb;
+      document.querySelectorAll(".tab-btn").forEach(b => {
+        b.classList.toggle("active", b.getAttribute("data-tab") === tb);
+      });
+    }
+  }
+
+  if (params.has("tradeview")) {
+    const tv = params.get("tradeview").toLowerCase();
+    if (["cycles", "executions"].includes(tv)) {
+      currentTradeView = tv;
+      document.querySelectorAll(".tview-btn").forEach(b => {
+        b.classList.toggle("active", b.getAttribute("data-view") === tv);
+      });
+    }
+  }
+}
+
+function updateUrlParams() {
+  const url = new URL(window.location);
+  url.searchParams.set("model", currentModel);
+  url.searchParams.set("cap", simulatedCapital);
+  url.searchParams.set("tf", currentTimeframe);
+  url.searchParams.set("tab", currentTab);
+  url.searchParams.set("tradeview", currentTradeView);
+  window.history.replaceState({}, "", url);
+}
+
+function showToast(message, icon = "fa-solid fa-check text-emerald") {
+  const container = document.getElementById("toastContainer");
+  if (!container) return;
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.innerHTML = `<i class="${icon}"></i> <span>${message}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(10px)";
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+
+/* ==========================================================================
+   EVENT LISTENERS INITIALIZATION
+   ========================================================================== */
 function initEventListeners() {
   // Strategy Model selector buttons
   document.querySelectorAll(".model-toggle-btn").forEach(btn => {
@@ -29,6 +126,7 @@ function initEventListeners() {
       document.querySelectorAll(".model-toggle-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       currentModel = btn.getAttribute("data-model");
+      updateUrlParams();
       if (cachedData) {
         renderUI(cachedData);
         renderChart();
@@ -51,6 +149,7 @@ function initEventListeners() {
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       currentTab = btn.getAttribute("data-tab");
+      updateUrlParams();
       renderChart();
     });
   });
@@ -61,6 +160,7 @@ function initEventListeners() {
       document.querySelectorAll(".tf-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       currentTimeframe = btn.getAttribute("data-tf");
+      updateUrlParams();
       renderChart();
     });
   });
@@ -73,6 +173,7 @@ function initEventListeners() {
       simulatedCapital = parseFloat(btn.getAttribute("data-amt")) || 10000;
       const customInput = document.getElementById("simCustomCapital");
       if (customInput) customInput.value = simulatedCapital;
+      updateUrlParams();
       if (cachedData) {
         renderUI(cachedData);
         renderChart();
@@ -88,16 +189,57 @@ function initEventListeners() {
       if (!isNaN(val) && val > 0) {
         simulatedCapital = val;
         document.querySelectorAll(".sim-btn").forEach(b => {
-          if (parseFloat(b.getAttribute("data-amt")) === val) {
-            b.classList.add("active");
-          } else {
-            b.classList.remove("active");
-          }
+          b.classList.toggle("active", parseFloat(b.getAttribute("data-amt")) === val);
         });
+        updateUrlParams();
         if (cachedData) {
           renderUI(cachedData);
           renderChart();
         }
+      }
+    });
+  }
+
+  // Annual Matrix View toggle buttons
+  document.querySelectorAll(".matrix-toggle-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".matrix-toggle-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentMatrixView = btn.getAttribute("data-view");
+      if (cachedData) renderAnnualMatrix(cachedData);
+    });
+  });
+
+  // Trade View Switcher (Cycles vs Raw Executions)
+  document.querySelectorAll(".tview-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tview-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentTradeView = btn.getAttribute("data-view");
+      updateUrlParams();
+      if (cachedData) applyTradeFilters();
+    });
+  });
+
+  // Export CSV Button
+  const btnExport = document.getElementById("btnExportCsv");
+  if (btnExport) {
+    btnExport.addEventListener("click", exportCurrentTradeData);
+  }
+
+  // Share View Button
+  const btnShare = document.getElementById("btnShareUrl");
+  if (btnShare) {
+    btnShare.addEventListener("click", () => {
+      updateUrlParams();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(window.location.href).then(() => {
+          showToast("Dashboard URL copied to clipboard with current parameters!");
+        }).catch(() => {
+          prompt("Copy link to share this view:", window.location.href);
+        });
+      } else {
+        prompt("Copy link to share this view:", window.location.href);
       }
     });
   }
@@ -136,15 +278,15 @@ function initEventListeners() {
         const res = await fetch("/api/run_strategy", { method: "POST" });
         const result = await res.json();
         if (result.status === "success") {
-          alert("Strategy run complete! Data refreshed.");
+          showToast("Strategy run complete! Data refreshed.", "fa-solid fa-check text-emerald");
         } else if (result.status === "skipped") {
-          alert("Run skipped: " + result.message);
+          showToast("Run skipped: " + result.message, "fa-solid fa-info text-cyan");
         } else {
-          alert("Status: " + (result.message || result.status));
+          showToast("Status: " + (result.message || result.status), "fa-solid fa-triangle-exclamation text-amber");
         }
         await fetchDashboardData();
       } catch (err) {
-        alert("Failed to execute strategy: " + err.message);
+        showToast("Execution failed: " + err.message, "fa-solid fa-circle-xmark text-rose");
       } finally {
         btnRun.disabled = false;
         btnRun.classList.remove("running");
@@ -187,8 +329,13 @@ function startAutoRefresh() {
 async function fetchDashboardData(isBackground = false) {
   try {
     const isLocal = window.location.port === "5050" || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-    const endpoint = isLocal ? "/api/data" : "./data.json";
-    const res = await fetch(endpoint + "?_t=" + Date.now());
+    let endpoint = isLocal ? "/api/data" : "./data.json";
+    let res = await fetch(endpoint + "?_t=" + Date.now());
+    if (!res.ok && isLocal) {
+      // Fallback to local static data.json if running simple static HTTP server
+      endpoint = "./data.json";
+      res = await fetch(endpoint + "?_t=" + Date.now());
+    }
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const data = await res.json();
     cachedData = data;
@@ -200,13 +347,12 @@ async function fetchDashboardData(isBackground = false) {
 }
 
 /* ==========================================================================
-   UI RENDERING
+   UI RENDERING MASTER
    ========================================================================== */
 function renderUI(data) {
   const modelObj = (data.models && data.models[currentModel]) ? data.models[currentModel] : data;
   const p = modelObj.portfolio || data.portfolio;
   const stats = modelObj.stats || data.stats;
-  const cfg = data.config || {};
   const daily = modelObj.daily_summary || data.daily_summary;
 
   const baseStartCap = p.starting_capital || 10000;
@@ -215,8 +361,7 @@ function renderUI(data) {
   // 1. Header Market Status & Clock
   updateMarketStatus();
 
-  // 2. Regime Banner
-  const isProtected = p.position.includes("TQQQ");
+  // 2. Regime Hero Banner
   const banner = document.getElementById("regimeBanner");
   const badge = document.getElementById("regimeBadge");
   const badgeText = document.getElementById("regimeBadgeText");
@@ -331,48 +476,446 @@ function renderUI(data) {
     }
   }
 
-  // Populate Year Filter from active model's trades
-  const yearSelect = document.getElementById("tradeYearFilter");
-  const tradesList = modelObj.trades || data.trades || [];
-  if (yearSelect && tradesList.length > 0) {
-    const existingYears = new Set();
-    for (let i = 1; i < yearSelect.options.length; i++) {
-      existingYears.add(yearSelect.options[i].value);
-    }
-    const years = [...new Set(tradesList.map(t => (t.date || "").substring(0, 4)).filter(Boolean))].sort().reverse();
-    years.forEach(yr => {
-      if (!existingYears.has(yr)) {
-        const opt = document.createElement("option");
-        opt.value = yr;
-        opt.textContent = yr;
-        yearSelect.appendChild(opt);
-      }
-    });
-  }
+  // 4. Institutional Quant Risk & Quality Metrics
+  renderQuantMetrics(data);
 
-  // 4. Telemetry Panel
-  const telemetryPos = document.getElementById("telemetryPos");
-  if (telemetryPos) telemetryPos.textContent = p.position || "CASH";
-  const telemetrySignal = document.getElementById("telemetrySignal");
-  if (telemetrySignal) telemetrySignal.textContent = p.last_signal || "HOLD";
-  const statTrades = document.getElementById("statTotalTrades");
-  if (statTrades) statTrades.textContent = (stats && stats.total_trades) || tradesList.length || 0;
-  const statDays = document.getElementById("statDaysTracked");
-  if (statDays) statDays.textContent = `${(stats && stats.trading_days_tracked) || (daily ? daily.length : 0)} days`;
-  const statDD = document.getElementById("statMaxDD");
-  if (statDD) statDD.textContent = `${((stats && stats.max_drawdown_pct) !== undefined ? stats.max_drawdown_pct : 0).toFixed(2)}%`;
-  const statHWM = document.getElementById("statHWM");
-  if (statHWM) statHWM.textContent = formatCurrency(((stats && stats.high_water_mark) || p.total_value || 10000) * scaleFactor);
+  // 5. Forward Trigger Radar
+  renderTriggerRadar(data);
 
-  // 5. Trades Table
+  // 6. Annual Performance & Crisis Alpha Matrix
+  renderAnnualMatrix(data);
+
+  // 7. Telemetry Sidebar Gauges
+  renderSidebarTelemetry(data, scaleFactor);
+
+  // 8. Trade Table / Round-Trip Inspector
   renderTradesTable(modelObj.trades || data.trades);
 
-  // 6. Strategy Log Terminal
+  // 9. Strategy Log Terminal
   renderTerminal(modelObj.recent_logs || data.recent_logs);
 }
 
 /* ==========================================================================
-   CHART RENDERING (CHART.JS)
+   1. INSTITUTIONAL QUANT METRICS CALCULATOR & RENDERER
+   ========================================================================== */
+function renderQuantMetrics(data) {
+  const modelObj = (data.models && data.models[currentModel]) ? data.models[currentModel] : data;
+  const daily = modelObj.daily_summary || data.daily_summary || [];
+  const trades = modelObj.trades || data.trades || [];
+
+  if (!daily || daily.length < 2) return;
+
+  // 1. Daily returns
+  const vals = daily.map(r => r.total_value);
+  const returns = [];
+  const negReturns = [];
+  const rfDaily = Math.pow(1 + 0.045, 1 / 252) - 1;
+  const excessReturns = [];
+
+  for (let i = 1; i < vals.length; i++) {
+    const r = (vals[i] - vals[i - 1]) / vals[i - 1];
+    returns.push(r);
+    const ex = r - rfDaily;
+    excessReturns.push(ex);
+    if (r < 0) negReturns.push(r);
+  }
+
+  // Mean & Standard Deviations
+  const meanExcess = excessReturns.reduce((a, b) => a + b, 0) / excessReturns.length;
+  const meanReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
+  
+  const variance = returns.reduce((a, b) => a + Math.pow(b - meanReturn, 2), 0) / returns.length;
+  const stdDev = Math.sqrt(variance);
+
+  const meanNeg = negReturns.length > 0 ? (negReturns.reduce((a, b) => a + b, 0) / negReturns.length) : 0;
+  const negVariance = negReturns.reduce((a, b) => a + Math.pow(b - meanNeg, 2), 0) / (negReturns.length || 1);
+  const downsideStdDev = Math.sqrt(negVariance);
+
+  // Annualized Sharpe & Sortino
+  const annSharpe = stdDev > 0 ? (Math.sqrt(252) * meanExcess / stdDev) : 0;
+  const annSortino = downsideStdDev > 0 ? (Math.sqrt(252) * meanExcess / downsideStdDev) : 0;
+
+  // 16Y CAGR
+  const nYears = vals.length / 252;
+  const cagr = Math.pow(vals[vals.length - 1] / vals[0], 1 / nYears) - 1;
+
+  // Max Drawdown & Calmar
+  let hwm = vals[0];
+  let maxDd = 0;
+  let peakDate = new Date(daily[0].date);
+  let maxDurationDays = 0;
+
+  for (let i = 0; i < daily.length; i++) {
+    const v = daily[i].total_value;
+    const curDate = new Date(daily[i].date);
+    if (v >= hwm) {
+      const dur = Math.round((curDate - peakDate) / (1000 * 60 * 60 * 24));
+      if (dur > maxDurationDays) maxDurationDays = dur;
+      hwm = v;
+      peakDate = curDate;
+    } else {
+      const dd = (v - hwm) / hwm;
+      if (dd < maxDd) maxDd = dd;
+    }
+  }
+
+  const finalDur = Math.round((new Date(daily[daily.length - 1].date) - peakDate) / (1000 * 60 * 60 * 24));
+  if (finalDur > maxDurationDays) maxDurationDays = finalDur;
+
+  const calmar = Math.abs(maxDd) > 0 ? (cagr / Math.abs(maxDd)) : 0;
+
+  // Trade Cycles metrics
+  const cycles = computeTradeCycles(trades);
+  const wins = cycles.filter(c => c.pnlDollar > 0);
+  const losses = cycles.filter(c => c.pnlDollar <= 0);
+  const winRate = cycles.length > 0 ? (wins.length / cycles.length * 100) : 0;
+
+  const grossProfit = wins.reduce((acc, c) => acc + c.pnlDollar, 0);
+  const grossLoss = Math.abs(losses.reduce((acc, c) => acc + c.pnlDollar, 0));
+  const profitFactor = grossLoss > 0 ? (grossProfit / grossLoss) : (grossProfit > 0 ? 99.9 : 0);
+
+  const avgWinPct = wins.length > 0 ? (wins.reduce((acc, c) => acc + c.pnlPct, 0) / wins.length) : 0;
+  const avgLossPct = losses.length > 0 ? (losses.reduce((acc, c) => acc + c.pnlPct, 0) / losses.length) : 0;
+  const payoffRatio = Math.abs(avgLossPct) > 0 ? (avgWinPct / Math.abs(avgLossPct)) : 0;
+
+  // Update DOM Elements
+  const elSharpe = document.getElementById("qmSharpe");
+  if (elSharpe) elSharpe.textContent = annSharpe.toFixed(2);
+
+  const elSortino = document.getElementById("qmSortino");
+  if (elSortino) elSortino.textContent = annSortino.toFixed(2);
+
+  const elCalmar = document.getElementById("qmCalmar");
+  if (elCalmar) elCalmar.textContent = calmar.toFixed(2);
+
+  const elCagr = document.getElementById("qmCagr");
+  if (elCagr) elCagr.textContent = `${cagr >= 0 ? '+' : ''}${(cagr * 100).toFixed(1)}%`;
+
+  const elPF = document.getElementById("qmProfitFactor");
+  if (elPF) elPF.textContent = `${profitFactor.toFixed(2)}×`;
+
+  const elPFSub = document.getElementById("qmProfitFactorSub");
+  if (elPFSub) elPFSub.textContent = `$${(grossProfit / 1000).toFixed(0)}k Win / $${(grossLoss / 1000).toFixed(0)}k Loss`;
+
+  const elWinRate = document.getElementById("qmWinRate");
+  if (elWinRate) elWinRate.textContent = `${winRate.toFixed(1)}%`;
+
+  const elWinCount = document.getElementById("qmWinLossCount");
+  if (elWinCount) elWinCount.textContent = `${wins.length} Wins / ${losses.length} Losses`;
+
+  const elPayoff = document.getElementById("qmPayoffRatio");
+  if (elPayoff) elPayoff.textContent = `${payoffRatio.toFixed(2)}×`;
+
+  const elPayoffSub = document.getElementById("qmPayoffSub");
+  if (elPayoffSub) elPayoffSub.textContent = `+${avgWinPct.toFixed(1)}% / ${avgLossPct.toFixed(1)}%`;
+
+  const elMaxDur = document.getElementById("qmMaxDdDuration");
+  if (elMaxDur) elMaxDur.textContent = `${maxDurationDays} days`;
+}
+
+/* ==========================================================================
+   2. FORWARD TRIGGER RADAR RENDERER
+   ========================================================================== */
+function renderTriggerRadar(data) {
+  const modelObj = (data.models && data.models[currentModel]) ? data.models[currentModel] : data;
+  const p = modelObj.portfolio || data.portfolio;
+  const stats = modelObj.stats || data.stats;
+  const daily = modelObj.daily_summary || data.daily_summary || [];
+
+  if (!daily || daily.length === 0) return;
+  const latest = daily[daily.length - 1];
+
+  const curNdx = latest.ndx_price || stats.ndx_price || 0;
+  const curSma50 = latest.sma50 || stats.sma50 || 0;
+  const curAtr = stats.atr || 280.0;
+  const curRsi = latest.rsi || stats.rsi || 50.0;
+
+  // Determine Stop / Exit Threshold for active model
+  let exitThreshold = 0;
+  let conditionText = "";
+
+  if (currentModel === "symmetric_atr") {
+    exitThreshold = curSma50 - (1.0 * curAtr);
+    conditionText = `Requires NDX close below SMA50 - 1.0× ATR (${exitThreshold.toFixed(1)})`;
+  } else {
+    exitThreshold = curSma50;
+    conditionText = `Requires NDX close below 50-day SMA (${exitThreshold.toFixed(1)})`;
+  }
+
+  const distPts = curNdx - exitThreshold;
+  const distPct = exitThreshold > 0 ? (distPts / exitThreshold) * 100 : 0;
+
+  const elExitPrice = document.getElementById("radarExitPrice");
+  if (elExitPrice) elExitPrice.textContent = `NDX ${exitThreshold.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`;
+
+  const elExitDist = document.getElementById("radarExitDistance");
+  if (elExitDist) {
+    elExitDist.textContent = `${distPts >= 0 ? '+' : ''}${distPts.toFixed(1)} pts (${distPct >= 0 ? '+' : ''}${distPct.toFixed(2)}%)`;
+    if (distPct > 2.0) {
+      elExitDist.className = "radar-cushion font-mono text-emerald";
+    } else if (distPct > 0.8) {
+      elExitDist.className = "radar-cushion font-mono text-amber";
+    } else {
+      elExitDist.className = "radar-cushion font-mono text-rose";
+    }
+  }
+
+  const elCondition = document.getElementById("radarExitCondition");
+  if (elCondition) elCondition.textContent = conditionText;
+
+  // RSI Overbought Headroom
+  const rsiHeadroom = 75.0 - curRsi;
+  const elRsiHeadroom = document.getElementById("radarRsiHeadroom");
+  if (elRsiHeadroom) {
+    if (rsiHeadroom <= 0) {
+      elRsiHeadroom.textContent = "TRIM ACTIVE (Overbought triggered)";
+      elRsiHeadroom.className = "radar-cushion text-rose font-mono";
+    } else {
+      elRsiHeadroom.textContent = `${rsiHeadroom.toFixed(1)} pts remaining before trim`;
+      elRsiHeadroom.className = "radar-cushion text-pink font-mono";
+    }
+  }
+
+  // Regime Streak calculation (consecutive trading sessions in current position)
+  let streak = 0;
+  const targetPos = p.position;
+  for (let i = daily.length - 1; i >= 0; i--) {
+    if (daily[i].position === targetPos) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+  const elStreak = document.getElementById("radarRegimeStreak");
+  if (elStreak) elStreak.textContent = `${streak} sessions`;
+
+  // All-Time High Proximity
+  let maxNdx = 0;
+  for (let i = 0; i < daily.length; i++) {
+    if (daily[i].ndx_price > maxNdx) maxNdx = daily[i].ndx_price;
+  }
+  const athDiffPct = maxNdx > 0 ? ((curNdx / maxNdx) - 1) * 100 : 0;
+  const elAth = document.getElementById("radarAthProximity");
+  if (elAth) {
+    elAth.textContent = `${athDiffPct >= 0 ? 'AT ATH' : `${athDiffPct.toFixed(2)}% vs ATH`}`;
+    elAth.className = athDiffPct >= -1.0 ? "radar-mini-val font-mono text-emerald" : "radar-mini-val font-mono text-cyan";
+  }
+}
+
+/* ==========================================================================
+   3. ANNUAL PERFORMANCE & CRISIS ALPHA MATRIX
+   ========================================================================== */
+function renderAnnualMatrix(data) {
+  const tableBody = document.getElementById("annualMatrixBody");
+  if (!tableBody || !data.models) return;
+
+  const activeModelObj = data.models[currentModel] || data;
+  const altModelKey = currentModel === "symmetric_atr" ? "original_agile" : "symmetric_atr";
+  const altModelObj = data.models[altModelKey] || null;
+
+  const dailyActive = activeModelObj.daily_summary || [];
+  const dailyAlt = (altModelObj && altModelObj.daily_summary) ? altModelObj.daily_summary : [];
+
+  if (dailyActive.length === 0) return;
+
+  // Group by calendar year
+  const yearsMap = {};
+  dailyActive.forEach(r => {
+    const yr = r.date.substring(0, 4);
+    if (!yearsMap[yr]) yearsMap[yr] = { active: [], alt: [] };
+    yearsMap[yr].active.push(r);
+  });
+
+  dailyAlt.forEach(r => {
+    const yr = r.date.substring(0, 4);
+    if (yearsMap[yr]) yearsMap[yr].alt.push(r);
+  });
+
+  const sortedYears = Object.keys(yearsMap).sort().reverse();
+  const crisisYears = ["2022", "2020", "2018", "2015", "2011"];
+
+  const displayYears = currentMatrixView === "crisis" 
+    ? sortedYears.filter(y => crisisYears.includes(y))
+    : sortedYears;
+
+  let rowsHtml = "";
+
+  displayYears.forEach(yr => {
+    const activeRecords = yearsMap[yr].active;
+    const altRecords = yearsMap[yr].alt;
+
+    if (!activeRecords || activeRecords.length < 2) return;
+
+    // Measure from prior year-end close (standard calendar-year accounting)
+    const prevYr = (parseInt(yr, 10) - 1).toString();
+    const prevActive = yearsMap[prevYr] ? yearsMap[prevYr].active : null;
+    const prevAlt = yearsMap[prevYr] ? yearsMap[prevYr].alt : null;
+
+    // Active Return
+    const aStart = (prevActive && prevActive.length > 0) ? prevActive[prevActive.length - 1].total_value : activeRecords[0].total_value;
+    const aEnd = activeRecords[activeRecords.length - 1].total_value;
+    const aRet = ((aEnd / aStart) - 1) * 100;
+
+    // Alt Return
+    let altRet = 0;
+    if (altRecords && altRecords.length >= 2) {
+      const altStart = (prevAlt && prevAlt.length > 0) ? prevAlt[prevAlt.length - 1].total_value : altRecords[0].total_value;
+      const altEnd = altRecords[altRecords.length - 1].total_value;
+      altRet = ((altEnd / altStart) - 1) * 100;
+    }
+
+    // NDX Return
+    const ndxStart = (prevActive && prevActive.length > 0) ? prevActive[prevActive.length - 1].ndx_price : activeRecords[0].ndx_price;
+    const ndxEnd = activeRecords[activeRecords.length - 1].ndx_price;
+    const ndxRet = ((ndxEnd / ndxStart) - 1) * 100;
+
+    // TQQQ Return
+    const tqqqStartRatio = (prevActive && prevActive.length > 0) 
+      ? (1 + (prevActive[prevActive.length - 1].tqqq_buyhold_pnl_pct || 0) / 100) 
+      : (1 + (activeRecords[0].tqqq_buyhold_pnl_pct || 0) / 100);
+    const tqqqEndRatio = 1 + (activeRecords[activeRecords.length - 1].tqqq_buyhold_pnl_pct || 0) / 100;
+    const tqqqRet = ((tqqqEndRatio / tqqqStartRatio) - 1) * 100;
+
+    // Alpha vs NDX
+    const alpha = aRet - ndxRet;
+
+    // Max Drawdown during this year
+    let yrHwm = aStart;
+    let yrMaxDd = 0;
+    activeRecords.forEach(r => {
+      if (r.total_value > yrHwm) yrHwm = r.total_value;
+      const dd = (r.total_value - yrHwm) / yrHwm * 100;
+      if (dd < yrMaxDd) yrMaxDd = dd;
+    });
+
+    // Outcome Tag
+    let outcomeHtml = "";
+    if (yr === "2022") {
+      outcomeHtml = `<span class="matrix-badge-defense"><i class="fa-solid fa-shield"></i> CRISIS ALPHA</span>`;
+    } else if (yr === "2020") {
+      outcomeHtml = `<span class="matrix-badge-win"><i class="fa-solid fa-bolt"></i> COVID REBOUND</span>`;
+    } else if (yr === "2018") {
+      outcomeHtml = `<span class="matrix-badge-defense"><i class="fa-solid fa-shield-halved"></i> BEAR DEFENSE</span>`;
+    } else if (aRet >= ndxRet && aRet > 0) {
+      outcomeHtml = `<span class="matrix-badge-win"><i class="fa-solid fa-trophy"></i> OUTPERFORM</span>`;
+    } else if (aRet > 0) {
+      outcomeHtml = `<span class="text-emerald font-mono">POSITIVE</span>`;
+    } else {
+      outcomeHtml = `<span class="text-rose font-mono">DRAWDOWN</span>`;
+    }
+
+    let alphaBadgeClass = "alpha-pos";
+    if (alpha >= 50) alphaBadgeClass = "alpha-huge-pos";
+    else if (alpha < 0) alphaBadgeClass = "alpha-neg";
+
+    rowsHtml += `
+      <tr>
+        <td><strong>${yr}</strong></td>
+        <td class="${aRet >= 0 ? 'cell-ret-pos' : 'cell-ret-neg'}">${aRet >= 0 ? '+' : ''}${aRet.toFixed(1)}%</td>
+        <td class="${altRet >= 0 ? 'cell-ret-pos' : 'cell-ret-neg'}">${altRet >= 0 ? '+' : ''}${altRet.toFixed(1)}%</td>
+        <td class="${ndxRet >= 0 ? 'text-muted' : 'text-rose'}">${ndxRet >= 0 ? '+' : ''}${ndxRet.toFixed(1)}%</td>
+        <td class="${tqqqRet >= 0 ? 'text-amber' : 'text-rose'}">${tqqqRet >= 0 ? '+' : ''}${tqqqRet.toFixed(1)}%</td>
+        <td><span class="alpha-badge ${alphaBadgeClass}">${alpha >= 0 ? '+' : ''}${alpha.toFixed(1)}%</span></td>
+        <td class="text-rose">${yrMaxDd.toFixed(1)}%</td>
+        <td>${outcomeHtml}</td>
+      </tr>
+    `;
+  });
+
+  tableBody.innerHTML = rowsHtml;
+
+  // Update Crisis Highlight Cards for active model
+  if (yearsMap["2022"]) {
+    const a22 = yearsMap["2022"].active;
+    const prev21 = yearsMap["2021"] ? yearsMap["2021"].active : null;
+    const base22 = (prev21 && prev21.length > 0) ? prev21[prev21.length - 1].total_value : a22[0].total_value;
+    const ret22 = ((a22[a22.length - 1].total_value / base22) - 1) * 100;
+    const el22 = document.getElementById("crisis2022Val");
+    if (el22) el22.textContent = `${ret22 >= 0 ? '+' : ''}${ret22.toFixed(1)}%`;
+    const pill22 = document.getElementById("crisis2022Pill");
+    if (pill22) pill22.textContent = `+${(ret22 - (-79.1)).toFixed(1)}% vs TQQQ`;
+  }
+
+  if (yearsMap["2020"]) {
+    const a20 = yearsMap["2020"].active;
+    const prev19 = yearsMap["2019"] ? yearsMap["2019"].active : null;
+    const base20 = (prev19 && prev19.length > 0) ? prev19[prev19.length - 1].total_value : a20[0].total_value;
+    const ret20 = ((a20[a20.length - 1].total_value / base20) - 1) * 100;
+    const el20 = document.getElementById("crisis2020Val");
+    if (el20) el20.textContent = `${ret20 >= 0 ? '+' : ''}${ret20.toFixed(1)}%`;
+    const pill20 = document.getElementById("crisis2020Pill");
+    if (pill20) pill20.textContent = `+${(ret20 - 47.6).toFixed(1)}% Alpha vs NDX`;
+  }
+
+  if (yearsMap["2018"]) {
+    const a18 = yearsMap["2018"].active;
+    const prev17 = yearsMap["2017"] ? yearsMap["2017"].active : null;
+    const base18 = (prev17 && prev17.length > 0) ? prev17[prev17.length - 1].total_value : a18[0].total_value;
+    const ret18 = ((a18[a18.length - 1].total_value / base18) - 1) * 100;
+    const el18 = document.getElementById("crisis2018Val");
+    if (el18) el18.textContent = `${ret18 >= 0 ? '+' : ''}${ret18.toFixed(1)}%`;
+    const pill18 = document.getElementById("crisis2018Pill");
+    if (pill18) pill18.textContent = `+${(ret18 - (-19.8)).toFixed(1)}% vs TQQQ`;
+  }
+}
+
+/* ==========================================================================
+   4. SIDEBAR TELEMETRY GAUGES
+   ========================================================================== */
+function renderSidebarTelemetry(data, scaleFactor) {
+  const modelObj = (data.models && data.models[currentModel]) ? data.models[currentModel] : data;
+  const p = modelObj.portfolio || data.portfolio;
+  const stats = modelObj.stats || data.stats;
+  const tradesList = modelObj.trades || data.trades || [];
+  const daily = modelObj.daily_summary || data.daily_summary || [];
+
+  // Gauge 1: Exit Threshold Distance
+  const telSma50Val = document.getElementById("telSma50Val");
+  const telSma50Fill = document.getElementById("telSma50Fill");
+  if (telSma50Val && stats.dist_sma50_pts !== undefined) {
+    telSma50Val.textContent = `${stats.dist_sma50_pts >= 0 ? '+' : ''}${stats.dist_sma50_pts.toFixed(1)} pts (${stats.dist_sma50_pct >= 0 ? '+' : ''}${stats.dist_sma50_pct.toFixed(2)}%)`;
+    const fillPct = Math.min(100, Math.max(0, 50 + stats.dist_sma50_pct * 5));
+    if (telSma50Fill) telSma50Fill.style.width = `${fillPct}%`;
+  }
+
+  // Gauge 2: RSI Heat Level
+  const telRsiVal = document.getElementById("telRsiVal");
+  const telRsiFill = document.getElementById("telRsiFill");
+  if (telRsiVal && stats.rsi !== undefined) {
+    telRsiVal.textContent = `${stats.rsi.toFixed(1)} / 75`;
+    const fillRsi = Math.min(100, Math.max(0, (stats.rsi / 100) * 100));
+    if (telRsiFill) telRsiFill.style.width = `${fillRsi}%`;
+  }
+
+  // Gauge 3: Asset Mix
+  const telAllocVal = document.getElementById("telAllocVal");
+  const allocTqqq = document.getElementById("allocTqqq");
+  const allocCash = document.getElementById("allocCash");
+  const allocTqqqPct = document.getElementById("allocTqqqPct");
+  const allocCashPct = document.getElementById("allocCashPct");
+
+  const tqqqPctVal = Math.round((p.allocation_pct || 0) * 100);
+  const cashPctVal = 100 - tqqqPctVal;
+
+  if (telAllocVal) telAllocVal.textContent = `${tqqqPctVal}% TQQQ / ${cashPctVal}% Cash`;
+  if (allocTqqq) allocTqqq.style.width = `${tqqqPctVal}%`;
+  if (allocCash) allocCash.style.width = `${cashPctVal}%`;
+  if (allocTqqqPct) allocTqqqPct.textContent = `${tqqqPctVal}%`;
+  if (allocCashPct) allocCashPct.textContent = `${cashPctVal}%`;
+
+  // Quick stats
+  const statTrades = document.getElementById("statTotalTrades");
+  if (statTrades) statTrades.textContent = (stats && stats.total_trades) || tradesList.length || 0;
+  const statDays = document.getElementById("statDaysTracked");
+  if (statDays) statDays.textContent = `${(stats && stats.trading_days_tracked) || daily.length} days`;
+  const statDD = document.getElementById("statMaxDD");
+  if (statDD) statDD.textContent = `${((stats && stats.max_drawdown_pct) !== undefined ? stats.max_drawdown_pct : 0).toFixed(2)}%`;
+  const statHWM = document.getElementById("statHWM");
+  if (statHWM) statHWM.textContent = formatCurrency(((stats && stats.high_water_mark) || p.total_value || 10000) * scaleFactor);
+}
+
+/* ==========================================================================
+   5. CHART RENDERING (EQUITY, TECHNICALS, RSI, DRAWDOWN)
    ========================================================================== */
 function renderChart() {
   if (!cachedData) return;
@@ -408,7 +951,7 @@ function renderChart() {
     if (otherRecords) otherRecords = otherRecords.filter(r => r.date >= "2020-01-01" && r.date <= "2020-12-31");
   }
 
-  // Sampling for silky smooth performance on multi-thousand point datasets
+  // Smooth dataset sampling for responsive 60fps canvas performance
   let plotRecords = records;
   let plotOtherRecords = otherRecords;
   if (plotRecords.length > 500) {
@@ -434,16 +977,18 @@ function renderChart() {
     chartInstance.destroy();
   }
 
+  const activeName = currentModel === "symmetric_atr" ? "Symmetric 1.0× ATR" : "Original Agile (1% Buffer)";
+  const otherName = currentModel === "symmetric_atr" ? "Original Agile (1% Buffer)" : "Symmetric 1.0× ATR";
+  const activeColor = currentModel === "symmetric_atr" ? "#00F2FE" : "#10B981";
+  const otherColor = currentModel === "symmetric_atr" ? "#10B981" : "#00F2FE";
+
   if (currentTab === "equity") {
     // --- TAB 1: EQUITY VS BENCHMARKS (REBASED TO TIMEFRAME START) ---
     const r0 = plotRecords[0];
-    const rEnd = plotRecords[plotRecords.length - 1];
-
     const stratStartVal = Math.max(0.0001, r0.total_value);
     const ndxStartRatio = Math.max(0.0001, 1 + (r0.ndx_buyhold_pnl_pct || 0) / 100);
     const tqqqStartRatio = Math.max(0.0001, 1 + (r0.tqqq_buyhold_pnl_pct || 0) / 100);
 
-    // Rebased to simulatedCapital at the start of this specific timeframe
     const activeEquityData = plotRecords.map(r => simulatedCapital * (r.total_value / stratStartVal));
     const baseLine = plotRecords.map(() => simulatedCapital);
     const ndxNorm = plotRecords.map(r => simulatedCapital * ((1 + (r.ndx_buyhold_pnl_pct || 0) / 100) / ndxStartRatio));
@@ -456,15 +1001,6 @@ function renderChart() {
     const activeRet = ((activeEndVal / simulatedCapital) - 1) * 100;
     const ndxRet = ((ndxEndVal / simulatedCapital) - 1) * 100;
     const tqqqRet = ((tqqqEndVal / simulatedCapital) - 1) * 100;
-
-    const activeSign = activeRet >= 0 ? "+" : "";
-    const ndxSign = ndxRet >= 0 ? "+" : "";
-    const tqqqSign = tqqqRet >= 0 ? "+" : "";
-
-    const activeName = currentModel === "symmetric_atr" ? "Symmetric 1.0× ATR" : "Original Agile (1% Buffer)";
-    const otherName = currentModel === "symmetric_atr" ? "Original Agile (1% Buffer)" : "Symmetric 1.0× ATR";
-    const activeColor = currentModel === "symmetric_atr" ? "#00F2FE" : "#10B981";
-    const otherColor = currentModel === "symmetric_atr" ? "#10B981" : "#00F2FE";
 
     const gradActive = ctx.createLinearGradient(0, 0, 0, 350);
     if (currentModel === "symmetric_atr") {
@@ -496,7 +1032,6 @@ function renderChart() {
       const otherEquityData = plotOtherRecords.map(r => simulatedCapital * (r.total_value / otherStartVal));
       const otherEndVal = otherEquityData[otherEquityData.length - 1];
       const otherRet = ((otherEndVal / simulatedCapital) - 1) * 100;
-      const otherSign = otherRet >= 0 ? "+" : "";
 
       datasets.push({
         label: otherName,
@@ -510,7 +1045,7 @@ function renderChart() {
         pointHoverRadius: 5,
       });
 
-      otherLegendHtml = `<div class="legend-item"><span class="legend-color-box" style="background:${otherColor}; border: 1px dashed white;"></span> ${otherName}: <strong>${formatCurrency(otherEndVal)}</strong> (${otherSign}${otherRet.toFixed(2)}%)</div>`;
+      otherLegendHtml = `<div class="legend-item"><span class="legend-color-box" style="background:${otherColor}; border: 1px dashed white;"></span> ${otherName}: <strong>${formatCurrency(otherEndVal)}</strong> (${otherRet >= 0 ? '+' : ''}${otherRet.toFixed(2)}%)</div>`;
     }
 
     datasets.push(
@@ -545,19 +1080,133 @@ function renderChart() {
 
     chartInstance = new Chart(ctx, {
       type: "line",
-      data: {
-        labels: labels,
-        datasets: datasets
-      },
+      data: { labels: labels, datasets: datasets },
       options: getCommonChartOptions("$")
     });
 
     legendBox.innerHTML = `
-      <div class="legend-item"><span class="legend-color-box" style="background:${activeColor};"></span> ${activeName} (Active): <strong>${formatCurrency(activeEndVal)}</strong> (${activeSign}${activeRet.toFixed(2)}%)</div>
+      <div class="legend-item"><span class="legend-color-box" style="background:${activeColor};"></span> ${activeName} (Active): <strong>${formatCurrency(activeEndVal)}</strong> (${activeRet >= 0 ? '+' : ''}${activeRet.toFixed(2)}%)</div>
       ${otherLegendHtml}
-      <div class="legend-item"><span class="legend-color-box" style="background:#A855F7;"></span> NDX: <strong>${formatCurrency(ndxEndVal)}</strong> (${ndxSign}${ndxRet.toFixed(2)}%)</div>
-      <div class="legend-item"><span class="legend-color-box" style="background:#F59E0B;"></span> TQQQ: <strong>${formatCurrency(tqqqEndVal)}</strong> (${tqqqSign}${tqqqRet.toFixed(2)}%)</div>
+      <div class="legend-item"><span class="legend-color-box" style="background:#A855F7;"></span> NDX: <strong>${formatCurrency(ndxEndVal)}</strong> (${ndxRet >= 0 ? '+' : ''}${ndxRet.toFixed(2)}%)</div>
+      <div class="legend-item"><span class="legend-color-box" style="background:#F59E0B;"></span> TQQQ: <strong>${formatCurrency(tqqqEndVal)}</strong> (${tqqqRet >= 0 ? '+' : ''}${tqqqRet.toFixed(2)}%)</div>
       <div class="legend-item"><span class="legend-color-box" style="background:rgba(255,255,255,0.4); border: 1px dashed white;"></span> Baseline: <strong>${formatCurrency(simulatedCapital)}</strong></div>
+    `;
+
+  } else if (currentTab === "drawdown") {
+    // --- TAB 4: DRAWDOWN & UNDERWATER PROFILE ---
+    // Compute peak-to-trough decline from HWM for active model
+    let hwmActive = plotRecords[0].total_value;
+    const activeDdData = plotRecords.map(r => {
+      if (r.total_value > hwmActive) hwmActive = r.total_value;
+      return ((r.total_value - hwmActive) / hwmActive) * 100;
+    });
+
+    // NDX Drawdown
+    let hwmNdx = plotRecords[0].ndx_price;
+    const ndxDdData = plotRecords.map(r => {
+      if (r.ndx_price > hwmNdx) hwmNdx = r.ndx_price;
+      return ((r.ndx_price - hwmNdx) / hwmNdx) * 100;
+    });
+
+    // TQQQ Drawdown
+    let hwmTqqq = 1 + (plotRecords[0].tqqq_buyhold_pnl_pct || 0) / 100;
+    const tqqqDdData = plotRecords.map(r => {
+      const norm = 1 + (r.tqqq_buyhold_pnl_pct || 0) / 100;
+      if (norm > hwmTqqq) hwmTqqq = norm;
+      return ((norm - hwmTqqq) / hwmTqqq) * 100;
+    });
+
+    const gradDd = ctx.createLinearGradient(0, 0, 0, 350);
+    gradDd.addColorStop(0, "rgba(0, 242, 254, 0.0)");
+    gradDd.addColorStop(1, "rgba(0, 242, 254, 0.2)");
+
+    const datasets = [
+      {
+        label: `${activeName} (Active)`,
+        data: activeDdData,
+        borderColor: activeColor,
+        borderWidth: 2.2,
+        backgroundColor: gradDd,
+        fill: true,
+        tension: 0.15,
+        pointRadius: 0,
+      }
+    ];
+
+    let otherDdLegend = "";
+    if (overlayBothModels && plotOtherRecords && plotOtherRecords.length > 0) {
+      let hwmOther = plotOtherRecords[0].total_value;
+      const otherDdData = plotOtherRecords.map(r => {
+        if (r.total_value > hwmOther) hwmOther = r.total_value;
+        return ((r.total_value - hwmOther) / hwmOther) * 100;
+      });
+
+      datasets.push({
+        label: otherName,
+        data: otherDdData,
+        borderColor: otherColor,
+        borderWidth: 1.8,
+        borderDash: [4, 4],
+        fill: false,
+        tension: 0.15,
+        pointRadius: 0,
+      });
+
+      const otherMinDd = Math.min(...otherDdData);
+      otherDdLegend = `<div class="legend-item"><span class="legend-color-box" style="background:${otherColor}; border: 1px dashed white;"></span> ${otherName}: Max DD <strong>${otherMinDd.toFixed(2)}%</strong></div>`;
+    }
+
+    datasets.push(
+      {
+        label: "NDX Drawdown",
+        data: ndxDdData,
+        borderColor: "#A855F7",
+        borderWidth: 1.5,
+        fill: false,
+        tension: 0.15,
+        pointRadius: 0,
+      },
+      {
+        label: "TQQQ Drawdown (Unhedged)",
+        data: tqqqDdData,
+        borderColor: "#F43F5E",
+        borderWidth: 1.8,
+        fill: false,
+        tension: 0.15,
+        pointRadius: 0,
+      }
+    );
+
+    const activeMinDd = Math.min(...activeDdData);
+    const ndxMinDd = Math.min(...ndxDdData);
+    const tqqqMinDd = Math.min(...tqqqDdData);
+
+    chartInstance = new Chart(ctx, {
+      type: "line",
+      data: { labels: labels, datasets: datasets },
+      options: {
+        ...getCommonChartOptions("%"),
+        scales: {
+          ...getCommonChartOptions("%").scales,
+          y: {
+            min: -100,
+            max: 0,
+            grid: { color: "rgba(255, 255, 255, 0.05)" },
+            ticks: {
+              color: "#94A3B8",
+              font: { family: "'JetBrains Mono'", size: 10 },
+              callback: (v) => `${v}%`
+            }
+          }
+        }
+      }
+    });
+
+    legendBox.innerHTML = `
+      <div class="legend-item"><span class="legend-color-box" style="background:${activeColor};"></span> ${activeName}: Max DD <strong>${activeMinDd.toFixed(2)}%</strong></div>
+      ${otherDdLegend}
+      <div class="legend-item"><span class="legend-color-box" style="background:#A855F7;"></span> NDX: Max DD <strong>${ndxMinDd.toFixed(2)}%</strong></div>
+      <div class="legend-item"><span class="legend-color-box" style="background:#F43F5E;"></span> TQQQ: Max DD <strong class="text-rose">${tqqqMinDd.toFixed(2)}%</strong></div>
     `;
 
   } else if (currentTab === "technicals") {
@@ -712,6 +1361,8 @@ function getCommonChartOptions(prefix = "") {
               const diffPct = ((val / simulatedCapital) - 1) * 100;
               const sign = diffPct >= 0 ? "+" : "";
               return `${context.dataset.label}: $${val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${sign}${diffPct.toFixed(2)}%)`;
+            } else if (prefix === "%") {
+              return `${context.dataset.label}: ${val.toFixed(2)}% from peak`;
             } else {
               return `${context.dataset.label}: ${val.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 2 })}`;
             }
@@ -741,6 +1392,7 @@ function getCommonChartOptions(prefix = "") {
               if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`;
               return `$${value}`;
             }
+            if (prefix === "%") return `${value}%`;
             return value.toLocaleString();
           }
         }
@@ -750,8 +1402,58 @@ function getCommonChartOptions(prefix = "") {
 }
 
 /* ==========================================================================
-   TRADES TABLE RENDERING & FILTERING
+   6. COMPLETED TRADE CYCLES ENGINE & TABLE INSPECTOR
    ========================================================================== */
+function computeTradeCycles(trades) {
+  if (!trades || trades.length === 0) return [];
+  const cycles = [];
+  let cur = null;
+
+  for (let i = 0; i < trades.length; i++) {
+    const t = trades[i];
+    const act = (t.action || "").toUpperCase();
+
+    if (act === "BUY" && cur === null) {
+      cur = {
+        cycleNum: cycles.length + 1,
+        entryDate: t.date,
+        ticker: t.ticker,
+        entryPrice: parseFloat(t.price) || 0,
+        entryVal: parseFloat(t.value) || 0,
+        entryNdx: parseFloat(t.ndx_price) || 0,
+        exitDate: null,
+        exitPrice: 0,
+        exitVal: 0,
+        exitNdx: 0,
+        exitReason: "",
+        durationDays: 0,
+        pnlDollar: 0,
+        pnlPct: 0,
+        outcome: "OPEN"
+      };
+    } else if (act === "SELL" && cur !== null) {
+      cur.exitDate = t.date;
+      cur.exitPrice = parseFloat(t.price) || 0;
+      cur.exitVal = parseFloat(t.value) || 0;
+      cur.exitNdx = parseFloat(t.ndx_price) || 0;
+      cur.exitReason = t.reason || "System signal exit";
+
+      const d1 = new Date(cur.entryDate);
+      const d2 = new Date(cur.exitDate);
+      cur.durationDays = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24)));
+
+      cur.pnlDollar = cur.exitVal - cur.entryVal;
+      cur.pnlPct = cur.entryVal > 0 ? ((cur.exitVal / cur.entryVal) - 1) * 100 : 0;
+      cur.outcome = cur.pnlDollar >= 0 ? "WIN" : "LOSS";
+
+      cycles.push(cur);
+      cur = null;
+    }
+  }
+
+  return cycles;
+}
+
 function renderTradesTable(trades) {
   applyTradeFilters();
 }
@@ -763,6 +1465,9 @@ function applyTradeFilters() {
   const tradesPool = activeModelObj.trades || cachedData.trades;
   if (!tradesPool) return;
 
+  const baseStartCap = (activeModelObj.portfolio && activeModelObj.portfolio.starting_capital) || 10000;
+  const scaleFactor = simulatedCapital / baseStartCap;
+
   const actionFilter = document.getElementById("tradeActionFilter");
   const yearFilter = document.getElementById("tradeYearFilter");
   const searchInput = document.getElementById("tradeSearchInput");
@@ -771,61 +1476,287 @@ function applyTradeFilters() {
   const yearVal = yearFilter ? yearFilter.value : "ALL";
   const query = searchInput ? searchInput.value.toLowerCase().trim() : "";
 
-  const baseStartCap = (activeModelObj.portfolio && activeModelObj.portfolio.starting_capital) || 10000;
-  const scaleFactor = simulatedCapital / baseStartCap;
-
-  let filtered = [...tradesPool];
-
-  if (actionVal !== "ALL") {
-    filtered = filtered.filter(t => (t.action || "").toUpperCase().includes(actionVal));
+  // Dynamic filter dropdown options update for current view
+  if (actionFilter) {
+    if (currentTradeView === "cycles") {
+      actionFilter.innerHTML = `
+        <option value="ALL">All Outcomes</option>
+        <option value="WIN">WIN Trades</option>
+        <option value="LOSS">LOSS Trades</option>
+      `;
+      actionFilter.value = ["ALL", "WIN", "LOSS"].includes(actionVal) ? actionVal : "ALL";
+    } else {
+      actionFilter.innerHTML = `
+        <option value="ALL">All Actions</option>
+        <option value="BUY">BUY (100%)</option>
+        <option value="SELL">SELL / CASH</option>
+        <option value="ADJUST">TRIM (30%/50%)</option>
+      `;
+      actionFilter.value = ["ALL", "BUY", "SELL", "ADJUST"].includes(actionVal) ? actionVal : "ALL";
+    }
   }
 
-  if (yearVal !== "ALL") {
-    filtered = filtered.filter(t => (t.date || "").startsWith(yearVal));
-  }
-
-  if (query) {
-    filtered = filtered.filter(t => {
-      const rowStr = `${t.date} ${t.action} ${t.ticker} ${t.reason}`.toLowerCase();
-      return rowStr.includes(query);
+  // Populate Year Filter options
+  if (yearFilter && yearFilter.options.length <= 1) {
+    const years = [...new Set(tradesPool.map(t => (t.date || "").substring(0, 4)).filter(Boolean))].sort().reverse();
+    years.forEach(yr => {
+      const opt = document.createElement("option");
+      opt.value = yr;
+      opt.textContent = yr;
+      yearFilter.appendChild(opt);
     });
   }
 
+  const tableHead = document.getElementById("tradeTableHead");
   const tbody = document.getElementById("tradeTableBody");
-  if (!filtered || filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No trades match selected filters.</td></tr>`;
-    return;
+  const cyclesSummaryBar = document.getElementById("cyclesSummaryBar");
+
+  const allCycles = computeTradeCycles(tradesPool);
+  const countCyclesEl = document.getElementById("countCycles");
+  if (countCyclesEl) countCyclesEl.textContent = allCycles.length;
+
+  const countExecutionsEl = document.getElementById("countExecutions");
+  if (countExecutionsEl) countExecutionsEl.textContent = tradesPool.length;
+
+  if (currentTradeView === "cycles") {
+    // --- CYCLES VIEW ---
+    if (cyclesSummaryBar) cyclesSummaryBar.style.display = "flex";
+
+    // Update Summary Bar
+    const wins = allCycles.filter(c => c.pnlDollar > 0);
+    const losses = allCycles.filter(c => c.pnlDollar <= 0);
+    const winRate = allCycles.length > 0 ? (wins.length / allCycles.length * 100) : 0;
+    const grossProfit = wins.reduce((acc, c) => acc + c.pnlDollar, 0);
+    const grossLoss = Math.abs(losses.reduce((acc, c) => acc + c.pnlDollar, 0));
+    const pf = grossLoss > 0 ? (grossProfit / grossLoss) : 0;
+    const avgWin = wins.length > 0 ? (wins.reduce((acc, c) => acc + c.pnlPct, 0) / wins.length) : 0;
+    const avgLoss = losses.length > 0 ? (losses.reduce((acc, c) => acc + c.pnlPct, 0) / losses.length) : 0;
+    const totalDays = allCycles.reduce((acc, c) => acc + c.durationDays, 0);
+    const avgDur = allCycles.length > 0 ? Math.round(totalDays / allCycles.length) : 0;
+
+    const elCycles = document.getElementById("csbCycles");
+    if (elCycles) elCycles.textContent = `${allCycles.length} completed`;
+    const elWinRate = document.getElementById("csbWinRate");
+    if (elWinRate) elWinRate.textContent = `${winRate.toFixed(1)}% (${wins.length}W / ${losses.length}L)`;
+    const elPf = document.getElementById("csbProfitFactor");
+    if (elPf) elPf.textContent = `${pf.toFixed(2)}×`;
+    const elAvgWin = document.getElementById("csbAvgWin");
+    if (elAvgWin) elAvgWin.textContent = `+${avgWin.toFixed(1)}%`;
+    const elAvgLoss = document.getElementById("csbAvgLoss");
+    if (elAvgLoss) elAvgLoss.textContent = `${avgLoss.toFixed(1)}%`;
+    const elAvgDur = document.getElementById("csbAvgDuration");
+    if (elAvgDur) elAvgDur.textContent = `${avgDur} days`;
+
+    // Filter Cycles
+    let filteredCycles = [...allCycles];
+    if (actionVal !== "ALL") {
+      filteredCycles = filteredCycles.filter(c => c.outcome === actionVal);
+    }
+    if (yearVal !== "ALL") {
+      filteredCycles = filteredCycles.filter(c => (c.entryDate || "").startsWith(yearVal) || (c.exitDate || "").startsWith(yearVal));
+    }
+    if (query) {
+      filteredCycles = filteredCycles.filter(c => {
+        const rowStr = `${c.cycleNum} ${c.entryDate} ${c.exitDate} ${c.ticker} ${c.outcome} ${c.exitReason}`.toLowerCase();
+        return rowStr.includes(query);
+      });
+    }
+
+    if (tableHead) {
+      tableHead.innerHTML = `
+        <tr>
+          <th>Cycle</th>
+          <th>Entry Date</th>
+          <th>Exit Date</th>
+          <th>Hold Time</th>
+          <th>Ticker</th>
+          <th>Entry Cap</th>
+          <th>Exit Cap</th>
+          <th>Realized Return</th>
+          <th>Outcome</th>
+          <th>Exit Catalyst</th>
+        </tr>
+      `;
+    }
+
+    if (filteredCycles.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted">No completed trade cycles match selected filters.</td></tr>`;
+      return;
+    }
+
+    // Newest cycles first
+    const sorted = [...filteredCycles].reverse();
+    tbody.innerHTML = sorted.map(c => {
+      const isWin = c.pnlDollar >= 0;
+      return `
+        <tr>
+          <td><strong>#${c.cycleNum}</strong></td>
+          <td>${c.entryDate} ($${c.entryPrice.toFixed(2)})</td>
+          <td>${c.exitDate} ($${c.exitPrice.toFixed(2)})</td>
+          <td>${c.durationDays} days</td>
+          <td><strong>${c.ticker}</strong></td>
+          <td>${formatCurrency(c.entryVal * scaleFactor)}</td>
+          <td><strong>${formatCurrency(c.exitVal * scaleFactor)}</strong></td>
+          <td class="${isWin ? 'text-emerald' : 'text-rose'} font-mono">
+            ${isWin ? '+' : ''}${formatCurrency(c.pnlDollar * scaleFactor)} (${isWin ? '+' : ''}${c.pnlPct.toFixed(2)}%)
+          </td>
+          <td><span class="outcome-pill ${isWin ? 'outcome-win' : 'outcome-loss'}">${c.outcome}</span></td>
+          <td><span class="trade-reason-text" title="${c.exitReason}">${c.exitReason}</span></td>
+        </tr>
+      `;
+    }).join("");
+
+  } else {
+    // --- RAW EXECUTIONS VIEW ---
+    if (cyclesSummaryBar) cyclesSummaryBar.style.display = "none";
+
+    let filtered = [...tradesPool];
+    if (actionVal !== "ALL") {
+      filtered = filtered.filter(t => (t.action || "").toUpperCase().includes(actionVal));
+    }
+    if (yearVal !== "ALL") {
+      filtered = filtered.filter(t => (t.date || "").startsWith(yearVal));
+    }
+    if (query) {
+      filtered = filtered.filter(t => {
+        const rowStr = `${t.date} ${t.action} ${t.ticker} ${t.reason}`.toLowerCase();
+        return rowStr.includes(query);
+      });
+    }
+
+    if (tableHead) {
+      tableHead.innerHTML = `
+        <tr>
+          <th>Date</th>
+          <th>Action</th>
+          <th>Ticker</th>
+          <th>Shares</th>
+          <th>Execution Price</th>
+          <th>Total Value</th>
+          <th>NDX Level</th>
+          <th>Reason</th>
+        </tr>
+      `;
+    }
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No raw executions match selected filters.</td></tr>`;
+      return;
+    }
+
+    const sorted = [...filtered].reverse();
+    tbody.innerHTML = sorted.slice(0, 300).map(t => {
+      let actionClass = "action-adjust";
+      if (t.action === "BUY") actionClass = "action-buy";
+      if (t.action === "SELL") actionClass = "action-sell";
+
+      const shares = (parseFloat(t.shares) || 0) * scaleFactor;
+      const price = parseFloat(t.price) || 0;
+      const value = (parseFloat(t.value) || 0) * scaleFactor;
+      const ndx = parseFloat(t.ndx_price) || 0;
+
+      return `
+        <tr>
+          <td>${t.date || "N/A"}</td>
+          <td><span class="action-pill ${actionClass}">${t.action}</span></td>
+          <td><strong>${t.ticker}</strong></td>
+          <td>${shares.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
+          <td>$${price.toFixed(2)}</td>
+          <td><strong>${formatCurrency(value)}</strong></td>
+          <td>${ndx.toLocaleString("en-US", { minimumFractionDigits: 1 })}</td>
+          <td><span class="trade-reason-text" title="${t.reason}">${t.reason}</span></td>
+        </tr>
+      `;
+    }).join("");
   }
-
-  // Reverse so newest trades appear on top
-  const sorted = [...filtered].reverse();
-  tbody.innerHTML = sorted.slice(0, 300).map(t => {
-    let actionClass = "action-adjust";
-    if (t.action === "BUY") actionClass = "action-buy";
-    if (t.action === "SELL") actionClass = "action-sell";
-
-    const shares = (parseFloat(t.shares) || 0) * scaleFactor;
-    const price = parseFloat(t.price) || 0;
-    const value = (parseFloat(t.value) || 0) * scaleFactor;
-    const ndx = parseFloat(t.ndx_price) || 0;
-
-    return `
-      <tr>
-        <td>${t.date || "N/A"}</td>
-        <td><span class="action-pill ${actionClass}">${t.action}</span></td>
-        <td><strong>${t.ticker}</strong></td>
-        <td>${shares.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
-        <td>$${price.toFixed(2)}</td>
-        <td><strong>$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
-        <td>${ndx.toLocaleString("en-US", { minimumFractionDigits: 1 })}</td>
-        <td><span class="trade-reason-text" title="${t.reason}">${t.reason}</span></td>
-      </tr>
-    `;
-  }).join("");
 }
 
 /* ==========================================================================
-   TERMINAL LOG RENDERING
+   7. CSV EXPORT TOOLING
+   ========================================================================== */
+function exportCurrentTradeData() {
+  if (!cachedData) return;
+
+  const activeModelObj = (cachedData.models && cachedData.models[currentModel]) ? cachedData.models[currentModel] : cachedData;
+  const tradesPool = activeModelObj.trades || cachedData.trades;
+  if (!tradesPool || tradesPool.length === 0) {
+    alert("No trade data available to export.");
+    return;
+  }
+
+  const baseStartCap = (activeModelObj.portfolio && activeModelObj.portfolio.starting_capital) || 10000;
+  const scaleFactor = simulatedCapital / baseStartCap;
+
+  let csvContent = "";
+  let filename = "";
+
+  if (currentTradeView === "cycles") {
+    const cycles = computeTradeCycles(tradesPool);
+    filename = `ndx_strategy_cycles_${currentModel}_${Date.now()}.csv`;
+    const headers = ["Cycle_ID", "Entry_Date", "Exit_Date", "Holding_Days", "Ticker", "Entry_Price", "Exit_Price", "Invested_Capital", "Exit_Proceeds", "Realized_PnL_Dollar", "Return_Pct", "Outcome", "Exit_Catalyst"];
+    csvContent = headers.join(",") + "\n";
+
+    cycles.forEach(c => {
+      const row = [
+        c.cycleNum,
+        `"${c.entryDate}"`,
+        `"${c.exitDate}"`,
+        c.durationDays,
+        `"${c.ticker}"`,
+        c.entryPrice.toFixed(2),
+        c.exitPrice.toFixed(2),
+        (c.entryVal * scaleFactor).toFixed(2),
+        (c.exitVal * scaleFactor).toFixed(2),
+        (c.pnlDollar * scaleFactor).toFixed(2),
+        c.pnlPct.toFixed(2),
+        `"${c.outcome}"`,
+        `"${(c.exitReason || "").replace(/"/g, '""')}"`
+      ];
+      csvContent += row.join(",") + "\n";
+    });
+
+  } else {
+    filename = `ndx_strategy_executions_${currentModel}_${Date.now()}.csv`;
+    const headers = ["Date", "Timestamp", "Action", "Ticker", "Shares", "Price", "Scaled_Value", "NDX_Price", "SMA50", "SMA250", "RSI", "Reason"];
+    csvContent = headers.join(",") + "\n";
+
+    tradesPool.forEach(t => {
+      const shares = (parseFloat(t.shares) || 0) * scaleFactor;
+      const value = (parseFloat(t.value) || 0) * scaleFactor;
+      const row = [
+        `"${t.date || ""}"`,
+        `"${t.timestamp || ""}"`,
+        `"${t.action || ""}"`,
+        `"${t.ticker || ""}"`,
+        shares.toFixed(4),
+        (parseFloat(t.price) || 0).toFixed(2),
+        value.toFixed(2),
+        (parseFloat(t.ndx_price) || 0).toFixed(2),
+        (parseFloat(t.sma50) || 0).toFixed(2),
+        (parseFloat(t.sma250) || 0).toFixed(2),
+        (parseFloat(t.rsi) || 0).toFixed(2),
+        `"${(t.reason || "").replace(/"/g, '""')}"`
+      ];
+      csvContent += row.join(",") + "\n";
+    });
+  }
+
+  // Trigger download
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  showToast(`Exported ${currentTradeView === 'cycles' ? 'completed cycles' : 'trade executions'} to CSV!`);
+}
+
+/* ==========================================================================
+   8. STRATEGY LOG TERMINAL STREAM
    ========================================================================== */
 function renderTerminal(logs) {
   const win = document.getElementById("terminalWindow");
@@ -847,7 +1778,7 @@ function renderTerminal(logs) {
 }
 
 /* ==========================================================================
-   TIME & MARKET STATUS HELPERS
+   9. TIME & MARKET STATUS HELPERS
    ========================================================================== */
 function updateClocks() {
   const now = new Date();
