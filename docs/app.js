@@ -112,6 +112,16 @@ function parseUrlParams() {
       });
     }
   }
+
+  if (params.has("matrixview")) {
+    const mv = params.get("matrixview").toLowerCase();
+    if (["all", "crisis"].includes(mv)) {
+      currentMatrixView = mv;
+      document.querySelectorAll(".matrix-toggle-btn").forEach(b => {
+        b.classList.toggle("active", b.getAttribute("data-view") === mv);
+      });
+    }
+  }
 }
 
 function updateUrlParams() {
@@ -121,6 +131,7 @@ function updateUrlParams() {
   url.searchParams.set("tf", currentTimeframe);
   url.searchParams.set("tab", currentTab);
   url.searchParams.set("tradeview", currentTradeView);
+  url.searchParams.set("matrixview", currentMatrixView);
   if (currentTimeframe === "CUSTOM") {
     url.searchParams.set("c_start", customStartDate);
     url.searchParams.set("c_end", customEndDate);
@@ -219,6 +230,22 @@ function initEventListeners() {
       currentTab = btn.getAttribute("data-tab");
       updateUrlParams();
       renderChart();
+    });
+  });
+
+  // Annual Performance Matrix View Switcher (All Years vs Crisis Stress Tests)
+  document.querySelectorAll(".matrix-toggle-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const view = btn.getAttribute("data-view");
+      if (view) {
+        currentMatrixView = view;
+        document.querySelectorAll(".matrix-toggle-btn").forEach(b => b.classList.toggle("active", b.getAttribute("data-view") === view));
+        updateUrlParams();
+        if (cachedData) {
+          renderAnnualMatrix(cachedData);
+          showToast(`Annual Matrix: ${view === 'crisis' ? 'Crisis Stress Tests' : 'All 17 Years'}`);
+        }
+      }
     });
   });
 

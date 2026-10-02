@@ -1736,11 +1736,18 @@ body {
   align-items: center;
   gap: 6px;
   transition: all 0.2s;
+  user-select: none;
+}
+.matrix-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-main);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 .matrix-toggle-btn.active {
   background: rgba(16, 185, 129, 0.15);
   border-color: var(--emerald);
   color: var(--emerald);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
 }
 .crisis-cards-grid {
   display: grid;
