@@ -16,7 +16,7 @@
   <!-- Chart.js for High Performance Canvas Charts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   
-  <link rel="stylesheet" href="style.css?v=2.5">
+  <link rel="stylesheet" href="style.css?v=2.6">
 </head>
 <body>
   <div class="app-container">
@@ -55,9 +55,9 @@
           <div class="countdown-val" id="countdownTimer">--:--:--</div>
         </div>
         
-        <button class="btn-run-strategy" id="btnRunStrategy" title="Trigger strategy check immediately">
-          <i class="fa-solid fa-play" id="runIcon"></i>
-          <span id="runText">Run Now</span>
+        <button class="btn-quant-lab" id="btnOpenSandbox" title="Open Interactive Strategy Sandbox & Custom Backtest Engine">
+          <i class="fa-solid fa-flask-vial"></i>
+          <span>Quant Lab</span>
         </button>
 
         <button class="btn-refresh" id="btnRefresh" title="Force Refresh Data">
@@ -157,6 +157,16 @@
     </section>
  
     <!-- Institutional Quant Risk & Quality Metrics Strip -->
+    <div class="quant-strip-header">
+      <div class="qsh-title">
+        <i class="fa-solid fa-microchip text-cyan"></i>
+        <span>INSTITUTIONAL PERFORMANCE & RISK AUDIT</span>
+      </div>
+      <div class="qsh-window-badge" id="qmWindowBadge">
+        <i class="fa-regular fa-calendar-check"></i>
+        <span id="qmWindowText">Window: Full 16-Year Audit (2010–2026)</span>
+      </div>
+    </div>
     <section class="quant-metrics-strip" id="quantMetricsStrip">
       <div class="quant-metric-card" title="Annualized excess return per unit of total risk (Rf = 4.5%)">
         <div class="qm-header">
@@ -317,6 +327,36 @@
               <button class="tf-btn" data-tf="2022">2022 Bear</button>
               <button class="tf-btn" data-tf="2020">2020 COVID</button>
               <button class="tf-btn active" data-tf="ALL">16Y (ALL)</button>
+              <button class="tf-btn tf-btn-custom" id="btnTfCustom" data-tf="CUSTOM" title="Select custom historical date range">
+                <i class="fa-regular fa-calendar-days"></i> Custom
+              </button>
+            </div>
+          </div>
+          
+          <!-- Interactive Custom Date Range Control Bar -->
+          <div class="custom-range-bar" id="customRangeBar" style="display: none;">
+            <div class="custom-range-inner">
+              <div class="range-inputs-group">
+                <div class="range-field">
+                  <label for="customStartDate"><i class="fa-regular fa-calendar text-cyan"></i> START DATE</label>
+                  <input type="date" id="customStartDate" min="2010-02-11" max="2026-03-30" value="2015-01-01">
+                </div>
+                <div class="range-separator"><i class="fa-solid fa-arrow-right"></i></div>
+                <div class="range-field">
+                  <label for="customEndDate"><i class="fa-regular fa-calendar-check text-emerald"></i> END DATE</label>
+                  <input type="date" id="customEndDate" min="2010-02-11" max="2026-03-30" value="2026-03-30">
+                </div>
+                <button class="btn-range-apply" id="btnApplyCustomRange"><i class="fa-solid fa-play"></i> Apply Window</button>
+                <button class="btn-range-reset" id="btnResetCustomRange" title="Reset to Full 16 Years"><i class="fa-solid fa-rotate-left"></i> Full 16Y</button>
+              </div>
+              <div class="range-presets-row">
+                <span class="range-presets-label"><i class="fa-solid fa-bookmark text-amber"></i> Quick Eras:</span>
+                <button type="button" class="range-preset-tag" data-start="2010-02-11" data-end="2015-12-31">2010–2015 Post-GFC Bull</button>
+                <button type="button" class="range-preset-tag" data-start="2018-01-01" data-end="2018-12-31">2018 Volmageddon & Q4 Bear</button>
+                <button type="button" class="range-preset-tag" data-start="2020-01-01" data-end="2020-12-31">2020 COVID Flash Crash</button>
+                <button type="button" class="range-preset-tag" data-start="2022-01-01" data-end="2022-12-31">2022 Tech Bear (-80% TQQQ)</button>
+                <button type="button" class="range-preset-tag" data-start="2023-01-01" data-end="2026-03-30">2023–2026 AI Megacap Rally</button>
+              </div>
             </div>
           </div>
           
@@ -689,9 +729,186 @@
 
   </div>
 
+  <!-- Quant Lab Strategy Sandbox Modal Backdrop -->
+  <div class="sandbox-modal-backdrop" id="sandboxModalBackdrop" style="display: none;">
+    <div class="sandbox-modal-card">
+      <div class="sandbox-header">
+        <div class="sandbox-title-wrap">
+          <div class="sandbox-icon-box">
+            <i class="fa-solid fa-flask-vial"></i>
+          </div>
+          <div>
+            <div class="sandbox-title-row">
+              <h2 class="sandbox-title">Quant Lab — Strategy Sandbox & Custom Backtest Engine</h2>
+              <span class="sandbox-chip font-mono">CLIENT-SIDE INSTANT ENGINE</span>
+            </div>
+            <p class="sandbox-subtitle">Simulate custom systematic rules across 4,185 daily sessions (2010–2026) in real time.</p>
+          </div>
+        </div>
+        <button class="sandbox-close-btn" id="btnCloseSandbox" title="Close Quant Lab"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="sandbox-body">
+        <!-- Controls Column -->
+        <div class="sandbox-controls-col">
+          <div class="sandbox-section-title"><i class="fa-solid fa-sliders text-cyan"></i> Algorithmic Parameters</div>
+          
+          <!-- Parameter 1: Capital -->
+          <div class="sandbox-field-group">
+            <label class="sandbox-label">Starting Capital ($)</label>
+            <div class="sandbox-input-row">
+              <span class="sandbox-curr">$</span>
+              <input type="number" id="sbCapital" value="10000" min="100" max="10000000" step="1000">
+            </div>
+            <div class="sandbox-quick-pills">
+              <button type="button" class="sb-pill" data-amt="5000">$5K</button>
+              <button type="button" class="sb-pill active" data-amt="10000">$10K</button>
+              <button type="button" class="sb-pill" data-amt="25000">$25K</button>
+              <button type="button" class="sb-pill" data-amt="50000">$50K</button>
+              <button type="button" class="sb-pill" data-amt="100000">$100K</button>
+            </div>
+          </div>
+
+          <!-- Parameter 2: Date Window -->
+          <div class="sandbox-field-group">
+            <label class="sandbox-label">Simulation Date Window</label>
+            <div class="sandbox-dates-grid">
+              <div>
+                <span class="sb-sublabel">From:</span>
+                <input type="date" id="sbStartDate" min="2010-02-11" max="2026-03-30" value="2010-02-11">
+              </div>
+              <div>
+                <span class="sb-sublabel">To:</span>
+                <input type="date" id="sbEndDate" min="2010-02-11" max="2026-03-30" value="2026-03-30">
+              </div>
+            </div>
+          </div>
+
+          <!-- Parameter 3: Primary Trend SMA -->
+          <div class="sandbox-field-group">
+            <div class="sandbox-label-row">
+              <label class="sandbox-label">Exit Trend SMA Period</label>
+              <span class="sb-val-display font-mono text-cyan" id="sbSmaDisplay">50 Days</span>
+            </div>
+            <input type="range" id="sbSmaPeriod" min="20" max="200" step="10" value="50" class="sandbox-range">
+            <div class="sb-range-ticks font-mono">
+              <span>20d (Fast)</span>
+              <span>50d (Benchmark)</span>
+              <span>100d</span>
+              <span>200d (Macro)</span>
+            </div>
+          </div>
+
+          <!-- Parameter 4: Hysteresis Buffer Type & Value -->
+          <div class="sandbox-field-group">
+            <label class="sandbox-label">Hysteresis Buffer Method</label>
+            <div class="sandbox-select-wrap">
+              <select id="sbBufferType">
+                <option value="atr_1_0" selected>Symmetric ATR (1.0× ATR Buffer — Benchmark)</option>
+                <option value="atr_0_5">Tight ATR (0.5× ATR Buffer)</option>
+                <option value="atr_1_5">Loose ATR (1.5× ATR Buffer)</option>
+                <option value="fixed_1_0">Fixed Percentage (1.0% Buffer)</option>
+                <option value="fixed_2_0">Fixed Percentage (2.0% Buffer)</option>
+                <option value="fixed_0_0">Zero Buffer (Immediate SMA Cross)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Parameter 5: RSI Momentum Overbought Trim -->
+          <div class="sandbox-field-group">
+            <label class="sandbox-label">RSI(14) Momentum Trim Policy</label>
+            <div class="sandbox-select-wrap">
+              <select id="sbRsiTrim">
+                <option value="75_25" selected>Trim 25% when RSI &gt; 75 (Benchmark)</option>
+                <option value="80_25">Trim 25% when RSI &gt; 80 (Aggressive)</option>
+                <option value="75_50">Trim 50% when RSI &gt; 75 (Defensive)</option>
+                <option value="none">No RSI Trim (Ride 100% TQQQ)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Parameter 6: Bear Regime Asset -->
+          <div class="sandbox-field-group">
+            <label class="sandbox-label">Bear Regime Asset</label>
+            <div class="sandbox-select-wrap">
+              <select id="sbBearAsset">
+                <option value="cash" selected>100% Cash / Treasury Yield (4.5% APR — Benchmark)</option>
+                <option value="sqqq_50">50% Cash / 50% SQQQ Inverse Hedge</option>
+                <option value="sqqq_100">100% SQQQ Inverse Hedge (High Volatility)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Run Simulation CTA -->
+          <button class="btn-sb-run" id="btnRunSandbox">
+            <i class="fa-solid fa-bolt"></i> Run Simulation
+          </button>
+        </div>
+
+        <!-- Results Column -->
+        <div class="sandbox-results-col">
+          <div class="sandbox-section-title"><i class="fa-solid fa-chart-line text-emerald"></i> Performance Scorecard vs. Benchmark</div>
+          
+          <div class="sb-scorecard-grid">
+            <div class="sb-metric-box">
+              <div class="sb-metric-label">FINAL PORTFOLIO VALUE</div>
+              <div class="sb-metric-val font-mono text-emerald" id="sbResValue">$446,090</div>
+              <div class="sb-metric-bench" id="sbBenchValue">Benchmark: $446,090</div>
+            </div>
+
+            <div class="sb-metric-box">
+              <div class="sb-metric-label">TOTAL RETURN</div>
+              <div class="sb-metric-val font-mono text-emerald" id="sbResReturn">+4,360.9%</div>
+              <div class="sb-metric-bench" id="sbBenchReturn">Benchmark: +4,360.9%</div>
+            </div>
+
+            <div class="sb-metric-box">
+              <div class="sb-metric-label">ANNUALIZED CAGR</div>
+              <div class="sb-metric-val font-mono text-amber" id="sbResCagr">+25.7%</div>
+              <div class="sb-metric-bench" id="sbBenchCagr">Benchmark: +25.7%</div>
+            </div>
+
+            <div class="sb-metric-box">
+              <div class="sb-metric-label">SHARPE RATIO (Rf 4.5%)</div>
+              <div class="sb-metric-val font-mono text-cyan" id="sbResSharpe">0.64</div>
+              <div class="sb-metric-bench" id="sbBenchSharpe">Benchmark: 0.64</div>
+            </div>
+
+            <div class="sb-metric-box">
+              <div class="sb-metric-label">MAXIMUM DRAWDOWN</div>
+              <div class="sb-metric-val font-mono text-rose" id="sbResMaxDd">-52.3%</div>
+              <div class="sb-metric-bench" id="sbBenchMaxDd">Benchmark: -52.3%</div>
+            </div>
+
+            <div class="sb-metric-box">
+              <div class="sb-metric-label">TRADE CYCLES & WIN RATE</div>
+              <div class="sb-metric-val font-mono text-purple" id="sbResWinRate">47.5% (40 Wins)</div>
+              <div class="sb-metric-bench" id="sbBenchWinRate">Benchmark: 47.5% (84 Cycles)</div>
+            </div>
+          </div>
+
+          <!-- Mini Preview / Comparison Canvas -->
+          <div class="sb-chart-wrap">
+            <canvas id="sbPreviewChart"></canvas>
+          </div>
+
+          <!-- Actions -->
+          <div class="sb-actions-row">
+            <button class="btn-sb-overlay" id="btnOverlaySandboxOnMain">
+              <i class="fa-solid fa-layer-group"></i> Overlay Custom Model on Main Dashboard Chart
+            </button>
+            <button class="btn-sb-export" id="btnExportSandboxCsv">
+              <i class="fa-solid fa-file-csv"></i> Export CSV
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Hub -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="app.js?v=2.5"></script>
+  <script src="app.js?v=2.6"></script>
 </body>
 </html>

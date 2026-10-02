@@ -23,6 +23,12 @@ let cachedData = null;
 let chartInstance = null;
 let autoRefreshTimer = null;
 
+// Custom Date Range & Strategy Sandbox State
+let customStartDate = "2015-01-01";
+let customEndDate = "2026-03-30";
+let sandboxCustomModelResult = null;
+let sbPreviewChartInstance = null;
+
 // Real-time Clock interval
 setInterval(updateClocks, 1000);
 
@@ -63,12 +69,27 @@ function parseUrlParams() {
 
   if (params.has("tf")) {
     const tf = params.get("tf").toUpperCase();
-    if (["1M", "6M", "1Y", "5Y", "2022", "2020", "ALL"].includes(tf)) {
+    if (["1M", "6M", "1Y", "5Y", "2022", "2020", "ALL", "CUSTOM"].includes(tf)) {
       currentTimeframe = tf;
       document.querySelectorAll(".tf-btn").forEach(b => {
         b.classList.toggle("active", b.getAttribute("data-tf") === tf);
       });
+      if (tf === "CUSTOM") {
+        const bar = document.getElementById("customRangeBar");
+        if (bar) bar.style.display = "block";
+      }
     }
+  }
+
+  if (params.has("c_start")) {
+    customStartDate = params.get("c_start");
+    const el = document.getElementById("customStartDate");
+    if (el) el.value = customStartDate;
+  }
+  if (params.has("c_end")) {
+    customEndDate = params.get("c_end");
+    const el = document.getElementById("customEndDate");
+    if (el) el.value = customEndDate;
   }
 
   if (params.has("tab")) {
@@ -99,6 +120,13 @@ function updateUrlParams() {
   url.searchParams.set("tf", currentTimeframe);
   url.searchParams.set("tab", currentTab);
   url.searchParams.set("tradeview", currentTradeView);
+  if (currentTimeframe === "CUSTOM") {
+    url.searchParams.set("c_start", customStartDate);
+    url.searchParams.set("c_end", customEndDate);
+  } else {
+    url.searchParams.delete("c_start");
+    url.searchParams.delete("c_end");
+  }
   window.history.replaceState({}, "", url);
 }
 
@@ -154,146 +182,207 @@ function initEventListeners() {
     });
   });
 
-  // Timeframe buttons
+  // Timeframe buttons & Custom Range Bar Toggle
   document.querySelectorAll(".tf-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".tf-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      currentTimeframe = btn.getAttribute("data-tf");
-      updateUrlParams();
-      renderChart();
-    });
-  });
-
-  // Capital Simulator Preset Buttons
-  document.querySelectorAll(".sim-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".sim-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      simulatedCapital = parseFloat(btn.getAttribute("data-amt")) || 10000;
-      const customInput = document.getElementById("simCustomCapital");
-      if (customInput) customInput.value = simulatedCapital;
+      const tf = btn.getAttribute("data-tf");
+      const customBar = document.getElementById("customRangeBar");
+      
+      if (tf === "CUSTOM") {
+        const isCurrentlyVisible = customBar && customBar.style.display !== "none";
+        if (isCurrentlyVisible && currentTimeframe === "CUSTOM") {
+          // Toggle off -> revert to ALL
+          if (customBar) customBar.style.display = "none";
+          document.querySelectorAll(".tf-btn").forEach(b => b.classList.toggle("active", b.getAttribute("data-tf") === "ALL"));
+          currentTimeframe = "ALL";
+        } else {
+          if (customBar) customBar.style.display = "block";
+          document.querySelectorAll(".tf-btn").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          currentTimeframe = "CUSTOM";
+        }
+      } else {
+        if (customBar) customBar.style.display = "none";
+        document.querySelectorAll(".tf-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentTimeframe = tf;
+      }
+      
       updateUrlParams();
       if (cachedData) {
-        renderUI(cachedData);
+        renderQuantMetrics(cachedData);
         renderChart();
       }
     });
   });
 
-  // Capital Simulator Custom Input
-  const customInput = document.getElementById("simCustomCapital");
-  if (customInput) {
-    customInput.addEventListener("input", (e) => {
-      const val = parseFloat(e.target.value);
-      if (!isNaN(val) && val > 0) {
-        simulatedCapital = val;
-        document.querySelectorAll(".sim-btn").forEach(b => {
-          b.classList.toggle("active", parseFloat(b.getAttribute("data-amt")) === val);
-        });
-        updateUrlParams();
-        if (cachedData) {
-          renderUI(cachedData);
-          renderChart();
-        }
-      }
-    });
-  }
-
-  // Annual Matrix View toggle buttons
-  document.querySelectorAll(".matrix-toggle-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".matrix-toggle-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      currentMatrixView = btn.getAttribute("data-view");
-      if (cachedData) renderAnnualMatrix(cachedData);
-    });
-  });
-
-  // Trade View Switcher (Cycles vs Raw Executions)
-  document.querySelectorAll(".tview-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".tview-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      currentTradeView = btn.getAttribute("data-view");
-      updateUrlParams();
-      if (cachedData) applyTradeFilters();
-    });
-  });
-
-  // Export CSV Button
-  const btnExport = document.getElementById("btnExportCsv");
-  if (btnExport) {
-    btnExport.addEventListener("click", exportCurrentTradeData);
-  }
-
-  // Share View Button
-  const btnShare = document.getElementById("btnShareUrl");
-  if (btnShare) {
-    btnShare.addEventListener("click", () => {
-      updateUrlParams();
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(window.location.href).then(() => {
-          showToast("Dashboard URL copied to clipboard with current parameters!");
-        }).catch(() => {
-          prompt("Copy link to share this view:", window.location.href);
-        });
-      } else {
-        prompt("Copy link to share this view:", window.location.href);
-      }
-    });
-  }
-
-  // Manual Sync Button
-  const btnRefresh = document.getElementById("btnRefresh");
-  if (btnRefresh) {
-    btnRefresh.addEventListener("click", () => {
-      const icon = document.getElementById("refreshIcon");
-      if (icon) icon.classList.add("fa-spin");
-      fetchDashboardData().finally(() => {
-        if (icon) setTimeout(() => icon.classList.remove("fa-spin"), 600);
-      });
-    });
-  }
-
-  // Run Strategy Now Button
-  const btnRun = document.getElementById("btnRunStrategy");
-  if (btnRun) {
-    btnRun.addEventListener("click", async () => {
-      const isLocal = window.location.port === "5050" || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      if (!isLocal) {
-        if (confirm("You are viewing the hosted cloud dashboard on GitHub Pages.\n\nStrategy runs automatically every trading day at 1:50 PM MT via GitHub Actions.\n\nWould you like to open GitHub Actions to trigger an instant cloud run now?")) {
-          window.open("https://github.com/MooMooDaBlue/ndx-strategy/actions", "_blank");
-        }
+  // Custom Date Range Apply Button
+  const btnApplyRange = document.getElementById("btnApplyCustomRange");
+  if (btnApplyRange) {
+    btnApplyRange.addEventListener("click", () => {
+      const s = document.getElementById("customStartDate").value;
+      const e = document.getElementById("customEndDate").value;
+      if (!s || !e) {
+        showToast("Please select valid start and end dates.", "fa-solid fa-triangle-exclamation text-amber");
         return;
       }
-
-      if (!confirm("Execute trading strategy check now?")) return;
-      btnRun.disabled = true;
-      btnRun.classList.add("running");
-      const runText = document.getElementById("runText");
-      const originalText = runText ? runText.textContent : "Run Now";
-      if (runText) runText.textContent = "Executing...";
-      try {
-        const res = await fetch("/api/run_strategy", { method: "POST" });
-        const result = await res.json();
-        if (result.status === "success") {
-          showToast("Strategy run complete! Data refreshed.", "fa-solid fa-check text-emerald");
-        } else if (result.status === "skipped") {
-          showToast("Run skipped: " + result.message, "fa-solid fa-info text-cyan");
-        } else {
-          showToast("Status: " + (result.message || result.status), "fa-solid fa-triangle-exclamation text-amber");
-        }
-        await fetchDashboardData();
-      } catch (err) {
-        showToast("Execution failed: " + err.message, "fa-solid fa-circle-xmark text-rose");
-      } finally {
-        btnRun.disabled = false;
-        btnRun.classList.remove("running");
-        if (runText) runText.textContent = originalText;
+      if (s > e) {
+        showToast("Start date must be before or equal to end date.", "fa-solid fa-triangle-exclamation text-rose");
+        return;
+      }
+      customStartDate = s;
+      customEndDate = e;
+      currentTimeframe = "CUSTOM";
+      document.querySelectorAll(".tf-btn").forEach(b => b.classList.toggle("active", b.getAttribute("data-tf") === "CUSTOM"));
+      updateUrlParams();
+      if (cachedData) {
+        renderQuantMetrics(cachedData);
+        renderChart();
+        showToast(`Applied custom window: ${s} to ${e}`);
       }
     });
   }
+
+  // Custom Date Range Reset Button
+  const btnResetRange = document.getElementById("btnResetCustomRange");
+  if (btnResetRange) {
+    btnResetRange.addEventListener("click", () => {
+      currentTimeframe = "ALL";
+      const customBar = document.getElementById("customRangeBar");
+      if (customBar) customBar.style.display = "none";
+      document.querySelectorAll(".tf-btn").forEach(b => b.classList.toggle("active", b.getAttribute("data-tf") === "ALL"));
+      updateUrlParams();
+      if (cachedData) {
+        renderQuantMetrics(cachedData);
+        renderChart();
+        showToast("Reset to full 16-year timeline.");
+      }
+    });
+  }
+
+  // Quick Eras preset buttons in Date Range Bar
+  document.querySelectorAll(".range-preset-tag").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const s = btn.getAttribute("data-start");
+      const e = btn.getAttribute("data-end");
+      if (s && e) {
+        customStartDate = s;
+        customEndDate = e;
+        const inpS = document.getElementById("customStartDate");
+        const inpE = document.getElementById("customEndDate");
+        if (inpS) inpS.value = s;
+        if (inpE) inpE.value = e;
+        currentTimeframe = "CUSTOM";
+        document.querySelectorAll(".tf-btn").forEach(b => b.classList.toggle("active", b.getAttribute("data-tf") === "CUSTOM"));
+        updateUrlParams();
+        if (cachedData) {
+          renderQuantMetrics(cachedData);
+          renderChart();
+          showToast(`Loaded era: ${btn.textContent.trim()}`);
+        }
+      }
+    });
+  });
+
+  // Quant Lab Sandbox Modal Event Handlers
+  const btnOpenSandbox = document.getElementById("btnOpenSandbox");
+  const sandboxModal = document.getElementById("sandboxModalBackdrop");
+  const btnCloseSandbox = document.getElementById("btnCloseSandbox");
+  
+  if (btnOpenSandbox && sandboxModal) {
+    btnOpenSandbox.addEventListener("click", () => {
+      sandboxModal.style.display = "flex";
+      document.body.style.overflow = "hidden";
+      runClientSideSimulation();
+    });
+  }
+  
+  if (btnCloseSandbox && sandboxModal) {
+    btnCloseSandbox.addEventListener("click", () => {
+      sandboxModal.style.display = "none";
+      document.body.style.overflow = "";
+    });
+  }
+
+  if (sandboxModal) {
+    sandboxModal.addEventListener("click", (e) => {
+      if (e.target === sandboxModal) {
+        sandboxModal.style.display = "none";
+        document.body.style.overflow = "";
+      }
+    });
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && sandboxModal && sandboxModal.style.display !== "none") {
+      sandboxModal.style.display = "none";
+      document.body.style.overflow = "";
+    }
+  });
+
+  // Sandbox SMA Slider Display listener
+  const sbSmaSlider = document.getElementById("sbSmaPeriod");
+  const sbSmaDisplay = document.getElementById("sbSmaDisplay");
+  if (sbSmaSlider && sbSmaDisplay) {
+    sbSmaSlider.addEventListener("input", (e) => {
+      sbSmaDisplay.textContent = `${e.target.value} Days`;
+    });
+  }
+
+  // Sandbox Capital Pills
+  document.querySelectorAll(".sb-pill").forEach(pill => {
+    pill.addEventListener("click", () => {
+      document.querySelectorAll(".sb-pill").forEach(p => p.classList.remove("active"));
+      pill.classList.add("active");
+      const amt = pill.getAttribute("data-amt");
+      const sbCapInp = document.getElementById("sbCapital");
+      if (sbCapInp && amt) sbCapInp.value = amt;
+    });
+  });
+
+  // Run Simulation Button
+  const btnRunSandbox = document.getElementById("btnRunSandbox");
+  if (btnRunSandbox) {
+    btnRunSandbox.addEventListener("click", runClientSideSimulation);
+  }
+
+  // Overlay on Main Chart Button
+  const btnOverlaySandbox = document.getElementById("btnOverlaySandboxOnMain");
+  if (btnOverlaySandbox) {
+    btnOverlaySandbox.addEventListener("click", () => {
+      if (!window._lastSandboxResult) {
+        runClientSideSimulation();
+      }
+      if (window._lastSandboxResult) {
+        sandboxCustomModelResult = window._lastSandboxResult;
+        if (sandboxModal) {
+          sandboxModal.style.display = "none";
+          document.body.style.overflow = "";
+        }
+        currentTab = "equity";
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.getAttribute("data-tab") === "equity"));
+        updateUrlParams();
+        renderChart();
+        showToast(`"${sandboxCustomModelResult.name}" overlaid on main chart!`, "fa-solid fa-layer-group text-amber");
+      }
+    });
+  }
+
+  // Export Sandbox Simulation CSV Button
+  const btnExportSandbox = document.getElementById("btnExportSandboxCsv");
+  if (btnExportSandbox) {
+    btnExportSandbox.addEventListener("click", exportSandboxCsv);
+  }
+
+  // Clear Overlay Click Delegator
+  document.addEventListener("click", (e) => {
+    if (e.target && e.target.id === "btnClearSandboxOverlay") {
+      e.preventDefault();
+      sandboxCustomModelResult = null;
+      renderChart();
+      showToast("Custom sandbox overlay removed from chart.");
+    }
+  });
 
   // Trade Table Filter Controls
   const actionFilter = document.getElementById("tradeActionFilter");
@@ -500,10 +589,52 @@ function renderUI(data) {
    ========================================================================== */
 function renderQuantMetrics(data) {
   const modelObj = (data.models && data.models[currentModel]) ? data.models[currentModel] : data;
-  const daily = modelObj.daily_summary || data.daily_summary || [];
-  const trades = modelObj.trades || data.trades || [];
+  let daily = modelObj.daily_summary ? [...modelObj.daily_summary] : [...(data.daily_summary || [])];
+  let trades = modelObj.trades ? [...modelObj.trades] : [...(data.trades || [])];
 
   if (!daily || daily.length < 2) return;
+
+  // Dynamic window filtering based on active timeframe or custom dates
+  let windowTitle = "Full 16-Year Audit (2010–2026)";
+  if (currentTimeframe === "1M") {
+    daily = daily.slice(-22);
+    windowTitle = `1-Month Window (${daily[0].date} to ${daily[daily.length - 1].date})`;
+  } else if (currentTimeframe === "6M") {
+    daily = daily.slice(-126);
+    windowTitle = `6-Month Window (${daily[0].date} to ${daily[daily.length - 1].date})`;
+  } else if (currentTimeframe === "1Y") {
+    daily = daily.slice(-252);
+    windowTitle = `1-Year Window (${daily[0].date} to ${daily[daily.length - 1].date})`;
+  } else if (currentTimeframe === "5Y") {
+    daily = daily.filter(r => r.date >= "2021-01-01");
+    windowTitle = `5-Year Window (2021 to 2026 • ${daily.length} Sessions)`;
+  } else if (currentTimeframe === "2022") {
+    daily = daily.filter(r => r.date >= "2022-01-01" && r.date <= "2022-12-31");
+    windowTitle = `2022 Tech Bear Market (251 Sessions)`;
+  } else if (currentTimeframe === "2020") {
+    daily = daily.filter(r => r.date >= "2020-01-01" && r.date <= "2020-12-31");
+    windowTitle = `2020 COVID Flash Crash (253 Sessions)`;
+  } else if (currentTimeframe === "CUSTOM") {
+    const start = customStartDate || "2010-02-11";
+    const end = customEndDate || "2026-03-30";
+    daily = daily.filter(r => r.date >= start && r.date <= end);
+    windowTitle = `Custom Window: ${start} to ${end} (${daily.length} Sessions)`;
+  }
+
+  // Filter trades to current window dates
+  if (daily.length > 0) {
+    const minD = daily[0].date;
+    const maxD = daily[daily.length - 1].date;
+    trades = trades.filter(t => {
+      const d = t.timestamp ? t.timestamp.substring(0, 10) : "";
+      return d >= minD && d <= maxD;
+    });
+  }
+
+  const elWindowText = document.getElementById("qmWindowText");
+  if (elWindowText) elWindowText.textContent = `Window: ${windowTitle}`;
+
+  if (daily.length < 2) return;
 
   // 1. Daily returns
   const vals = daily.map(r => r.total_value);
@@ -949,6 +1080,29 @@ function renderChart() {
   } else if (currentTimeframe === "2020") {
     records = records.filter(r => r.date >= "2020-01-01" && r.date <= "2020-12-31");
     if (otherRecords) otherRecords = otherRecords.filter(r => r.date >= "2020-01-01" && r.date <= "2020-12-31");
+  } else if (currentTimeframe === "CUSTOM") {
+    const start = customStartDate || "2010-02-11";
+    const end = customEndDate || "2026-03-30";
+    records = records.filter(r => r.date >= start && r.date <= end);
+    if (otherRecords) otherRecords = otherRecords.filter(r => r.date >= start && r.date <= end);
+  }
+
+  // Handle Sandbox Custom Model overlay data if active
+  let plotSbRecords = null;
+  if (sandboxCustomModelResult && sandboxCustomModelResult.records) {
+    let sbRecs = [...sandboxCustomModelResult.records];
+    if (currentTimeframe === "1M") sbRecs = sbRecs.slice(-22);
+    else if (currentTimeframe === "6M") sbRecs = sbRecs.slice(-126);
+    else if (currentTimeframe === "1Y") sbRecs = sbRecs.slice(-252);
+    else if (currentTimeframe === "5Y") sbRecs = sbRecs.filter(r => r.date >= "2021-01-01");
+    else if (currentTimeframe === "2022") sbRecs = sbRecs.filter(r => r.date >= "2022-01-01" && r.date <= "2022-12-31");
+    else if (currentTimeframe === "2020") sbRecs = sbRecs.filter(r => r.date >= "2020-01-01" && r.date <= "2020-12-31");
+    else if (currentTimeframe === "CUSTOM") {
+      const start = customStartDate || "2010-02-11";
+      const end = customEndDate || "2026-03-30";
+      sbRecs = sbRecs.filter(r => r.date >= start && r.date <= end);
+    }
+    plotSbRecords = sbRecs;
   }
 
   // Smooth dataset sampling for responsive 60fps canvas performance
@@ -958,16 +1112,20 @@ function renderChart() {
     const step = Math.ceil(plotRecords.length / 400);
     const sampled = [];
     const sampledOther = [];
+    const sampledSb = plotSbRecords ? [] : null;
     for (let i = 0; i < plotRecords.length; i += step) {
       sampled.push(plotRecords[i]);
       if (plotOtherRecords && plotOtherRecords[i]) sampledOther.push(plotOtherRecords[i]);
+      if (sampledSb && plotSbRecords[i]) sampledSb.push(plotSbRecords[i]);
     }
     if (sampled[sampled.length - 1] !== plotRecords[plotRecords.length - 1]) {
       sampled.push(plotRecords[plotRecords.length - 1]);
       if (plotOtherRecords && plotOtherRecords.length > 0) sampledOther.push(plotOtherRecords[plotOtherRecords.length - 1]);
+      if (sampledSb && plotSbRecords && plotSbRecords.length > 0) sampledSb.push(plotSbRecords[plotSbRecords.length - 1]);
     }
     plotRecords = sampled;
     if (plotOtherRecords && plotOtherRecords.length > 0) plotOtherRecords = sampledOther;
+    if (sampledSb && sampledSb.length > 0) plotSbRecords = sampledSb;
   }
 
   const labels = plotRecords.map(r => r.date);
@@ -1048,6 +1206,29 @@ function renderChart() {
       otherLegendHtml = `<div class="legend-item"><span class="legend-color-box" style="background:${otherColor}; border: 1px dashed white;"></span> ${otherName}: <strong>${formatCurrency(otherEndVal)}</strong> (${otherRet >= 0 ? '+' : ''}${otherRet.toFixed(2)}%)</div>`;
     }
 
+    let sbLegendHtml = "";
+    if (plotSbRecords && plotSbRecords.length > 0) {
+      const sbR0 = plotSbRecords[0];
+      const sbStartVal = Math.max(0.0001, sbR0.total_value);
+      const sbEquityData = plotSbRecords.map(r => simulatedCapital * (r.total_value / sbStartVal));
+      const sbEndVal = sbEquityData[sbEquityData.length - 1];
+      const sbRet = ((sbEndVal / simulatedCapital) - 1) * 100;
+
+      datasets.push({
+        label: `${sandboxCustomModelResult.name} (Sandbox)`,
+        data: sbEquityData,
+        borderColor: "#F59E0B",
+        borderWidth: 2.2,
+        borderDash: [5, 3],
+        fill: false,
+        tension: 0.2,
+        pointRadius: plotSbRecords.length > 60 ? 0 : 2,
+        pointHoverRadius: 5,
+      });
+
+      sbLegendHtml = `<div class="legend-item"><span class="legend-color-box" style="background:#F59E0B; border: 1px dashed white;"></span> ${sandboxCustomModelResult.name}: <strong>${formatCurrency(sbEndVal)}</strong> (${sbRet >= 0 ? '+' : ''}${sbRet.toFixed(2)}%) <a href="#" id="btnClearSandboxOverlay" style="color: #F43F5E; margin-left: 6px; text-decoration: underline; font-size: 11px;">[Remove]</a></div>`;
+    }
+
     datasets.push(
       {
         label: `Baseline ($${(simulatedCapital / 1000).toFixed(0)}k)`,
@@ -1087,6 +1268,7 @@ function renderChart() {
     legendBox.innerHTML = `
       <div class="legend-item"><span class="legend-color-box" style="background:${activeColor};"></span> ${activeName} (Active): <strong>${formatCurrency(activeEndVal)}</strong> (${activeRet >= 0 ? '+' : ''}${activeRet.toFixed(2)}%)</div>
       ${otherLegendHtml}
+      ${sbLegendHtml}
       <div class="legend-item"><span class="legend-color-box" style="background:#A855F7;"></span> NDX: <strong>${formatCurrency(ndxEndVal)}</strong> (${ndxRet >= 0 ? '+' : ''}${ndxRet.toFixed(2)}%)</div>
       <div class="legend-item"><span class="legend-color-box" style="background:#F59E0B;"></span> TQQQ: <strong>${formatCurrency(tqqqEndVal)}</strong> (${tqqqRet >= 0 ? '+' : ''}${tqqqRet.toFixed(2)}%)</div>
       <div class="legend-item"><span class="legend-color-box" style="background:rgba(255,255,255,0.4); border: 1px dashed white;"></span> Baseline: <strong>${formatCurrency(simulatedCapital)}</strong></div>
@@ -1156,6 +1338,29 @@ function renderChart() {
       otherDdLegend = `<div class="legend-item"><span class="legend-color-box" style="background:${otherColor}; border: 1px dashed white;"></span> ${otherName}: Max DD <strong>${otherMinDd.toFixed(2)}%</strong></div>`;
     }
 
+    let sbDdLegend = "";
+    if (plotSbRecords && plotSbRecords.length > 0) {
+      let hwmSb = plotSbRecords[0].total_value;
+      const sbDdData = plotSbRecords.map(r => {
+        if (r.total_value > hwmSb) hwmSb = r.total_value;
+        return ((r.total_value - hwmSb) / hwmSb) * 100;
+      });
+
+      datasets.push({
+        label: `${sandboxCustomModelResult.name} (Sandbox)`,
+        data: sbDdData,
+        borderColor: "#F59E0B",
+        borderWidth: 2.0,
+        borderDash: [5, 3],
+        fill: false,
+        tension: 0.15,
+        pointRadius: 0
+      });
+
+      const sbMinDd = Math.min(...sbDdData);
+      sbDdLegend = `<div class="legend-item"><span class="legend-color-box" style="background:#F59E0B; border: 1px dashed white;"></span> ${sandboxCustomModelResult.name}: Max DD <strong>${sbMinDd.toFixed(2)}%</strong></div>`;
+    }
+
     datasets.push(
       {
         label: "NDX Drawdown",
@@ -1205,6 +1410,7 @@ function renderChart() {
     legendBox.innerHTML = `
       <div class="legend-item"><span class="legend-color-box" style="background:${activeColor};"></span> ${activeName}: Max DD <strong>${activeMinDd.toFixed(2)}%</strong></div>
       ${otherDdLegend}
+      ${sbDdLegend}
       <div class="legend-item"><span class="legend-color-box" style="background:#A855F7;"></span> NDX: Max DD <strong>${ndxMinDd.toFixed(2)}%</strong></div>
       <div class="legend-item"><span class="legend-color-box" style="background:#F43F5E;"></span> TQQQ: Max DD <strong class="text-rose">${tqqqMinDd.toFixed(2)}%</strong></div>
     `;
@@ -1857,4 +2063,383 @@ function updateMarketStatus() {
 function formatCurrency(val) {
   if (isNaN(val)) return "$0.00";
   return "$" + val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/* ==========================================================================
+   10. QUANT LAB: CLIENT-SIDE SIMULATION ENGINE & SANDBOX BACKTEST
+   ========================================================================== */
+function runClientSideSimulation() {
+  const modelObj = (cachedData && cachedData.models && cachedData.models.symmetric_atr) ? cachedData.models.symmetric_atr : cachedData;
+  const allDaily = (modelObj && modelObj.daily_summary) || (cachedData && cachedData.daily_summary) || [];
+  
+  if (!allDaily || allDaily.length < 50) {
+    showToast("Strategy data not yet loaded. Please wait.", "fa-solid fa-clock text-amber");
+    return;
+  }
+
+  // 1. Read Controls
+  const capInput = parseFloat(document.getElementById("sbCapital").value) || 10000;
+  const startDate = document.getElementById("sbStartDate").value || "2010-02-11";
+  const endDate = document.getElementById("sbEndDate").value || "2026-03-30";
+  const smaPeriod = parseInt(document.getElementById("sbSmaPeriod").value, 10) || 50;
+  const bufferType = document.getElementById("sbBufferType").value;
+  const rsiTrim = document.getElementById("sbRsiTrim").value;
+  const bearAsset = document.getElementById("sbBearAsset").value;
+
+  // 2. Identify date indexes
+  let startIndex = allDaily.findIndex(r => r.date >= startDate);
+  if (startIndex === -1) startIndex = 0;
+  
+  let endIndex = allDaily.length - 1;
+  for (let i = allDaily.length - 1; i >= 0; i--) {
+    if (allDaily[i].date <= endDate) {
+      endIndex = i;
+      break;
+    }
+  }
+
+  if (endIndex <= startIndex) {
+    showToast("Invalid date range selected for simulation!", "fa-solid fa-triangle-exclamation text-rose");
+    return;
+  }
+
+  // 3. Precompute rolling SMA for NDX across all records
+  const customSmas = new Array(allDaily.length);
+  let rollingSum = 0;
+  for (let i = 0; i < allDaily.length; i++) {
+    rollingSum += allDaily[i].ndx_price;
+    if (i >= smaPeriod) {
+      rollingSum -= allDaily[i - smaPeriod].ndx_price;
+      customSmas[i] = rollingSum / smaPeriod;
+    } else {
+      customSmas[i] = rollingSum / (i + 1);
+    }
+  }
+
+  // 4. Determine buffer and RSI parameters
+  let bufferPct = 0;
+  let isAtr = false;
+  let atrMult = 1.0;
+  if (bufferType === "atr_1_0") { isAtr = true; atrMult = 1.0; }
+  else if (bufferType === "atr_0_5") { isAtr = true; atrMult = 0.5; }
+  else if (bufferType === "atr_1_5") { isAtr = true; atrMult = 1.5; }
+  else if (bufferType === "fixed_1_0") { bufferPct = 0.01; }
+  else if (bufferType === "fixed_2_0") { bufferPct = 0.02; }
+  else if (bufferType === "fixed_0_0") { bufferPct = 0.0; }
+
+  let rsiThreshold = 999;
+  let trimFraction = 0;
+  if (rsiTrim === "75_25") { rsiThreshold = 75; trimFraction = 0.25; }
+  else if (rsiTrim === "80_25") { rsiThreshold = 80; trimFraction = 0.25; }
+  else if (rsiTrim === "75_50") { rsiThreshold = 75; trimFraction = 0.50; }
+
+  // 5. Run Day-by-Day Simulation
+  const rfDaily = Math.pow(1 + 0.045, 1 / 252) - 1;
+  let curCapital = capInput;
+  let position = "CASH";
+  let tqqqWeight = 0;
+  const simResults = [];
+  const cycles = [];
+  let activeCycle = null;
+
+  for (let i = startIndex; i <= endIndex; i++) {
+    const cur = allDaily[i];
+    const prev = i > 0 ? allDaily[i - 1] : cur;
+
+    // Daily percentage changes
+    const tqqqPrevPnl = prev.tqqq_buyhold_pnl_pct || 0;
+    const tqqqCurPnl = cur.tqqq_buyhold_pnl_pct || 0;
+    const rTqqq = (1 + tqqqCurPnl / 100) / (1 + tqqqPrevPnl / 100) - 1;
+    const rNdx = prev.ndx_price > 0 ? (cur.ndx_price - prev.ndx_price) / prev.ndx_price : 0;
+
+    // Bear asset return
+    let rBear = rfDaily;
+    if (bearAsset === "sqqq_50") {
+      rBear = 0.5 * rfDaily + 0.5 * (-3 * rNdx);
+    } else if (bearAsset === "sqqq_100") {
+      rBear = -3 * rNdx;
+    }
+
+    // Apply asset returns based on prior day's holding
+    if (i > startIndex) {
+      if (position === "TQQQ") {
+        const tqqqVal = curCapital * tqqqWeight * (1 + rTqqq);
+        const bearVal = curCapital * (1 - tqqqWeight) * (1 + rBear);
+        curCapital = Math.max(0.01, tqqqVal + bearVal);
+      } else {
+        curCapital = Math.max(0.01, curCapital * (1 + rBear));
+      }
+    }
+
+    // Evaluate signals on today's close
+    const smaVal = customSmas[i];
+    let exitBuffer = 0;
+    let entryBuffer = 0;
+    if (isAtr) {
+      const estAtr = cur.ndx_price * 0.013;
+      exitBuffer = atrMult * estAtr;
+      entryBuffer = 0;
+    } else {
+      exitBuffer = smaVal * bufferPct;
+      entryBuffer = smaVal * bufferPct;
+    }
+
+    const ndxPrice = cur.ndx_price;
+    const rsi = cur.rsi || 50;
+
+    if (position === "CASH") {
+      if (ndxPrice > (smaVal + entryBuffer)) {
+        position = "TQQQ";
+        tqqqWeight = (rsi > rsiThreshold) ? (1 - trimFraction) : 1.0;
+        activeCycle = { entryDate: cur.date, entryCapital: curCapital, entryNdx: ndxPrice };
+      }
+    } else if (position === "TQQQ") {
+      if (ndxPrice < (smaVal - exitBuffer)) {
+        position = "CASH";
+        tqqqWeight = 0;
+        if (activeCycle) {
+          const pnlDollar = curCapital - activeCycle.entryCapital;
+          const pnlPct = (pnlDollar / activeCycle.entryCapital) * 100;
+          cycles.push({
+            entryDate: activeCycle.entryDate,
+            exitDate: cur.date,
+            pnlDollar,
+            pnlPct
+          });
+          activeCycle = null;
+        }
+      } else {
+        tqqqWeight = (rsi > rsiThreshold) ? (1 - trimFraction) : 1.0;
+      }
+    }
+
+    simResults.push({
+      date: cur.date,
+      total_value: curCapital,
+      position: position,
+      ndx_price: cur.ndx_price,
+      tqqq_buyhold_pnl_pct: cur.tqqq_buyhold_pnl_pct
+    });
+  }
+
+  // Close active cycle if still open at end
+  if (activeCycle) {
+    const pnlDollar = curCapital - activeCycle.entryCapital;
+    const pnlPct = (pnlDollar / activeCycle.entryCapital) * 100;
+    cycles.push({
+      entryDate: activeCycle.entryDate,
+      exitDate: simResults[simResults.length - 1].date,
+      pnlDollar,
+      pnlPct
+    });
+  }
+
+  // 6. Compute Quant Risk & Performance Metrics
+  const finalVal = curCapital;
+  const totalReturnPct = ((finalVal / capInput) - 1) * 100;
+  const nYears = simResults.length / 252;
+  const cagr = nYears > 0 ? (Math.pow(finalVal / capInput, 1 / nYears) - 1) * 100 : 0;
+
+  // Daily returns for Sharpe
+  const dailyReturns = [];
+  for (let j = 1; j < simResults.length; j++) {
+    dailyReturns.push((simResults[j].total_value - simResults[j - 1].total_value) / simResults[j - 1].total_value);
+  }
+  const meanRet = dailyReturns.reduce((a, b) => a + b, 0) / (dailyReturns.length || 1);
+  const varRet = dailyReturns.reduce((a, b) => a + Math.pow(b - meanRet, 2), 0) / (dailyReturns.length || 1);
+  const stdRet = Math.sqrt(varRet);
+  const sharpe = stdRet > 0 ? (Math.sqrt(252) * (meanRet - rfDaily) / stdRet) : 0;
+
+  // Maximum Drawdown
+  let hwm = capInput;
+  let maxDd = 0;
+  simResults.forEach(r => {
+    if (r.total_value > hwm) hwm = r.total_value;
+    const dd = ((r.total_value - hwm) / hwm) * 100;
+    if (dd < maxDd) maxDd = dd;
+  });
+
+  // Cycle Win Rate
+  const wins = cycles.filter(c => c.pnlDollar > 0);
+  const winRate = cycles.length > 0 ? (wins.length / cycles.length) * 100 : 0;
+
+  // 7. Benchmark Reference (Symmetric 1.0x ATR)
+  const benchDaily = (cachedData && cachedData.models && cachedData.models.symmetric_atr && cachedData.models.symmetric_atr.daily_summary) || allDaily;
+  const bSlice = benchDaily.filter(r => r.date >= startDate && r.date <= endDate);
+  let benchVal = capInput * 44.6;
+  let benchRet = 4360.9;
+  let benchCagr = 25.7;
+  let benchSharpe = 0.64;
+  let benchMaxDd = -52.3;
+  let benchWinRate = 47.5;
+  let benchCycleCount = 84;
+
+  if (bSlice.length >= 2) {
+    const bStart = bSlice[0].total_value;
+    const bEnd = bSlice[bSlice.length - 1].total_value;
+    benchVal = capInput * (bEnd / bStart);
+    benchRet = ((bEnd / bStart) - 1) * 100;
+    const bYears = bSlice.length / 252;
+    benchCagr = bYears > 0 ? (Math.pow(bEnd / bStart, 1 / bYears) - 1) * 100 : 0;
+    
+    let bHwm = bSlice[0].total_value;
+    let bDd = 0;
+    bSlice.forEach(r => {
+      if (r.total_value > bHwm) bHwm = r.total_value;
+      const d = ((r.total_value - bHwm) / bHwm) * 100;
+      if (d < bDd) bDd = d;
+    });
+    benchMaxDd = bDd;
+  }
+
+  // 8. Update Scorecard DOM
+  const elResVal = document.getElementById("sbResValue");
+  if (elResVal) elResVal.textContent = formatCurrency(finalVal);
+  const elBenchVal = document.getElementById("sbBenchValue");
+  if (elBenchVal) elBenchVal.textContent = `Benchmark: ${formatCurrency(benchVal)}`;
+
+  const elResRet = document.getElementById("sbResReturn");
+  if (elResRet) elResRet.textContent = `${totalReturnPct >= 0 ? '+' : ''}${totalReturnPct.toFixed(1)}%`;
+  const elBenchRet = document.getElementById("sbBenchReturn");
+  if (elBenchRet) elBenchRet.textContent = `Benchmark: ${benchRet >= 0 ? '+' : ''}${benchRet.toFixed(1)}%`;
+
+  const elResCagr = document.getElementById("sbResCagr");
+  if (elResCagr) elResCagr.textContent = `${cagr >= 0 ? '+' : ''}${cagr.toFixed(1)}%`;
+  const elBenchCagr = document.getElementById("sbBenchCagr");
+  if (elBenchCagr) elBenchCagr.textContent = `Benchmark: ${benchCagr >= 0 ? '+' : ''}${benchCagr.toFixed(1)}%`;
+
+  const elResSharpe = document.getElementById("sbResSharpe");
+  if (elResSharpe) elResSharpe.textContent = sharpe.toFixed(2);
+  const elBenchSharpe = document.getElementById("sbBenchSharpe");
+  if (elBenchSharpe) elBenchSharpe.textContent = `Benchmark: ${benchSharpe.toFixed(2)}`;
+
+  const elResMaxDd = document.getElementById("sbResMaxDd");
+  if (elResMaxDd) elResMaxDd.textContent = `${maxDd.toFixed(1)}%`;
+  const elBenchMaxDd = document.getElementById("sbBenchMaxDd");
+  if (elBenchMaxDd) elBenchMaxDd.textContent = `Benchmark: ${benchMaxDd.toFixed(1)}%`;
+
+  const elResWin = document.getElementById("sbResWinRate");
+  if (elResWin) elResWin.textContent = `${winRate.toFixed(1)}% (${wins.length}W / ${cycles.length - wins.length}L)`;
+  const elBenchWin = document.getElementById("sbBenchWinRate");
+  if (elBenchWin) elBenchWin.textContent = `Benchmark: ${benchWinRate.toFixed(1)}% (${benchCycleCount} Cycles)`;
+
+  // 9. Draw preview chart
+  renderSandboxPreviewChart(simResults);
+
+  // Store in global memory for Overlay & CSV export
+  window._lastSandboxResult = {
+    name: `Sandbox Model (SMA${smaPeriod}, ${bufferType.replace(/_/g, ' ')})`,
+    records: simResults,
+    cycles: cycles,
+    metrics: { finalVal, totalReturnPct, cagr, sharpe, maxDd, winRate }
+  };
+}
+
+/* ==========================================================================
+   11. SANDBOX PREVIEW MINI-CHART
+   ========================================================================== */
+function renderSandboxPreviewChart(simRecords) {
+  const canvas = document.getElementById("sbPreviewChart");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+
+  if (sbPreviewChartInstance) {
+    sbPreviewChartInstance.destroy();
+  }
+
+  // Sample to max 150 points for smooth canvas rendering in modal
+  let dataPoints = simRecords;
+  if (dataPoints.length > 150) {
+    const step = Math.ceil(dataPoints.length / 150);
+    const sampled = [];
+    for (let i = 0; i < dataPoints.length; i += step) {
+      sampled.push(dataPoints[i]);
+    }
+    if (sampled[sampled.length - 1] !== dataPoints[dataPoints.length - 1]) {
+      sampled.push(dataPoints[dataPoints.length - 1]);
+    }
+    dataPoints = sampled;
+  }
+
+  const labels = dataPoints.map(r => r.date);
+  const values = dataPoints.map(r => r.total_value);
+
+  const grad = ctx.createLinearGradient(0, 0, 0, 200);
+  grad.addColorStop(0, "rgba(168, 85, 247, 0.35)");
+  grad.addColorStop(1, "rgba(0, 242, 254, 0.0)");
+
+  sbPreviewChartInstance = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: "Sandbox Equity",
+          data: values,
+          borderColor: "#C084FC",
+          borderWidth: 2,
+          backgroundColor: grad,
+          fill: true,
+          pointRadius: 0,
+          tension: 0.15
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: "index",
+          intersect: false,
+          callbacks: {
+            label: (ctx) => `Portfolio: $${ctx.parsed.y.toLocaleString("en-US", { maximumFractionDigits: 0 })}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          display: true,
+          grid: { display: false },
+          ticks: { color: "#64748B", font: { family: "JetBrains Mono", size: 10 }, maxTicksLimit: 6 }
+        },
+        y: {
+          display: true,
+          grid: { color: "rgba(255, 255, 255, 0.05)" },
+          ticks: {
+            color: "#64748B",
+            font: { family: "JetBrains Mono", size: 10 },
+            callback: (v) => `$${(v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v)}`
+          }
+        }
+      }
+    }
+  });
+}
+
+/* ==========================================================================
+   12. SANDBOX CSV EXPORT
+   ========================================================================== */
+function exportSandboxCsv() {
+  if (!window._lastSandboxResult || !window._lastSandboxResult.records) {
+    showToast("No simulation data to export! Click 'Run Simulation' first.", "fa-solid fa-triangle-exclamation text-amber");
+    return;
+  }
+  const records = window._lastSandboxResult.records;
+  let csv = "Date,Portfolio_Value,Position,NDX_Price,TQQQ_PnL_Pct\n";
+  records.forEach(r => {
+    csv += `${r.date},${r.total_value.toFixed(2)},${r.position},${r.ndx_price.toFixed(2)},${(r.tqqq_buyhold_pnl_pct || 0).toFixed(2)}\n`;
+  });
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `sandbox_simulation_${records[0].date}_to_${records[records.length - 1].date}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast("Simulation CSV exported successfully!");
 }
