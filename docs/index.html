@@ -215,12 +215,12 @@
       </div>
 
       <!-- 5-State Strategy Gearbox Panel -->
-      <div class="strategy-gearbox-container" id="strategyGearbox" data-help="allocation_gears">
+      <div class="strategy-gearbox-container" id="strategyGearbox">
         <div class="gearbox-header">
-          <div class="gearbox-title">
+          <div class="gearbox-title" data-help="allocation_gears">
             <i class="fa-solid fa-gears text-cyan"></i>
             <span>SYSTEMATIC ALLOCATION SPECTRUM (THE 5 GEARS)</span>
-            <i class="fa-regular fa-circle-question qm-help-icon"></i>
+            <i class="fa-regular fa-circle-question qm-help-icon" title="View 5-Gear Spectrum System Overview"></i>
           </div>
           <div class="gearbox-active-desc" id="gearboxActiveDesc">
             Current State: <strong class="text-emerald" id="gearboxActiveGearName">GEAR 1 (100% TQQQ)</strong> • <span id="gearboxActiveGearSub">Full Bull Expansion: 100% Capital Invested in TQQQ / 0% Cash Reserve</span>
@@ -229,10 +229,13 @@
 
         <div class="gearbox-track">
           <!-- Gear 1 -->
-          <div class="gear-card gear-bull active" id="gearTqqq100">
+          <div class="gear-card gear-bull active" id="gearTqqq100" data-help="gear_tqqq_100">
             <div class="gear-top">
               <span class="gear-badge badge-bull">GEAR 1</span>
-              <span class="gear-beacon" id="beaconTqqq100"><span class="pulse-beacon"></span> ACTIVE</span>
+              <div class="gear-top-right">
+                <i class="fa-regular fa-circle-question qm-help-icon" title="View Gear 1 Quant Guide"></i>
+                <span class="gear-beacon" id="beaconTqqq100"><span class="pulse-beacon"></span> ACTIVE</span>
+              </div>
             </div>
             <div class="gear-allocation">
               <span class="gear-pct text-emerald">100% TQQQ</span>
@@ -244,10 +247,13 @@
           </div>
 
           <!-- Gear 2 -->
-          <div class="gear-card gear-caution" id="gearTqqq50">
+          <div class="gear-card gear-caution" id="gearTqqq50" data-help="gear_tqqq_50">
             <div class="gear-top">
               <span class="gear-badge badge-warning">GEAR 2</span>
-              <span class="gear-beacon" id="beaconTqqq50"><span class="pulse-beacon"></span> ACTIVE</span>
+              <div class="gear-top-right">
+                <i class="fa-regular fa-circle-question qm-help-icon" title="View Gear 2 Quant Guide"></i>
+                <span class="gear-beacon" id="beaconTqqq50"><span class="pulse-beacon"></span> ACTIVE</span>
+              </div>
             </div>
             <div class="gear-allocation">
               <span class="gear-pct text-amber">50% TQQQ</span>
@@ -259,10 +265,13 @@
           </div>
 
           <!-- Gear 3 -->
-          <div class="gear-card gear-trim" id="gearTqqq30">
+          <div class="gear-card gear-trim" id="gearTqqq30" data-help="gear_tqqq_30">
             <div class="gear-top">
               <span class="gear-badge badge-warning">GEAR 3</span>
-              <span class="gear-beacon" id="beaconTqqq30"><span class="pulse-beacon"></span> ACTIVE</span>
+              <div class="gear-top-right">
+                <i class="fa-regular fa-circle-question qm-help-icon" title="View Gear 3 Quant Guide"></i>
+                <span class="gear-beacon" id="beaconTqqq30"><span class="pulse-beacon"></span> ACTIVE</span>
+              </div>
             </div>
             <div class="gear-allocation">
               <span class="gear-pct text-orange">30% TQQQ</span>
@@ -274,10 +283,13 @@
           </div>
 
           <!-- Gear 4 -->
-          <div class="gear-card gear-defense" id="gearCash">
+          <div class="gear-card gear-defense" id="gearCash" data-help="gear_cash_100">
             <div class="gear-top">
               <span class="gear-badge badge-neutral">GEAR 4</span>
-              <span class="gear-beacon" id="beaconCash"><span class="pulse-beacon"></span> ACTIVE</span>
+              <div class="gear-top-right">
+                <i class="fa-regular fa-circle-question qm-help-icon" title="View Gear 4 Quant Guide"></i>
+                <span class="gear-beacon" id="beaconCash"><span class="pulse-beacon"></span> ACTIVE</span>
+              </div>
             </div>
             <div class="gear-allocation">
               <span class="gear-pct text-cyan">100% CASH</span>
@@ -289,10 +301,13 @@
           </div>
 
           <!-- Gear 5 -->
-          <div class="gear-card gear-bear" id="gearSqqq">
+          <div class="gear-card gear-bear" id="gearSqqq" data-help="gear_sqqq_100">
             <div class="gear-top">
               <span class="gear-badge badge-bear">GEAR 5</span>
-              <span class="gear-beacon" id="beaconSqqq"><span class="pulse-beacon"></span> ACTIVE</span>
+              <div class="gear-top-right">
+                <i class="fa-regular fa-circle-question qm-help-icon" title="View Gear 5 Quant Guide"></i>
+                <span class="gear-beacon" id="beaconSqqq"><span class="pulse-beacon"></span> ACTIVE</span>
+              </div>
             </div>
             <div class="gear-allocation">
               <span class="gear-pct text-rose">100% SQQQ</span>

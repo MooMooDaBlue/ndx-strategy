@@ -3451,14 +3451,79 @@ const QUANT_EXPLANATIONS = {
     title: "5-State Systematic Allocation Spectrum",
     category: "STRATEGY EXECUTION",
     icon: "fa-solid fa-gears text-cyan",
-    summary: "The strategy operates across 5 discrete mathematical regimes: 100% TQQQ, 50% Divergence Trim, 30% Overbought Trim, 100% Cash Defense, or 100% SQQQ Bear Inverse.",
-    analogy: "Like a precision 5-speed transmission in an endurance racecar: full throttle in straightaways, downshifting into corners, and hitting the brakes before crashes.",
+    summary: "The strategy operates across 5 discrete mathematical gears: Gear 1 (100% TQQQ), Gear 2 (50% Divergence Trim), Gear 3 (30% Overbought Trim), Gear 4 (100% Cash Defense), and Gear 5 (100% SQQQ Bear Inverse).",
+    analogy: "Like a precision 5-speed transmission in an endurance racecar: cruising at top speed on straightaways, downshifting into corners, braking before hazards, and reversing away from cliffs.",
     scores: [
-      { text: "100% SQQQ", label: "Macro Bear Inverse", color: "rose" },
-      { text: "100% CASH", label: "Capital Defense @ 4.5% Yield", color: "amber" },
-      { text: "100% TQQQ", label: "Full Bull Compound Expansion", color: "emerald" }
+      { text: "Gear 5 (SQQQ)", label: "Macro Bear Inverse (-3x Gain)", color: "rose" },
+      { text: "Gear 4 (Cash)", label: "Capital Defense @ 4.5% Yield", color: "cyan" },
+      { text: "Gear 1 (TQQQ)", label: "Full Bull Expansion (+3x Compounding)", color: "emerald" }
     ],
-    strategyTakeaway: "Eliminates emotional guessing. You always see the active gear, current dollar allocation, and the forward tripwire required to shift into the next state."
+    strategyTakeaway: "Eliminates emotional second-guessing. Hover or tap each individual gear card below to see its exact mathematical triggers, purpose, and risk mitigation role."
+  },
+  gear_tqqq_100: {
+    title: "Gear 1: Full Bull Expansion (100% TQQQ)",
+    category: "SYSTEMATIC GEAR 1",
+    icon: "fa-solid fa-bolt text-emerald",
+    summary: "Maximum compound velocity. 100% of portfolio capital is invested in TQQQ (3× leveraged Nasdaq-100) with 0% cash reserves during confirmed bull regimes.",
+    analogy: "Cruising in 5th gear on an open dry interstate. The engine operates at maximum efficiency and full throttle.",
+    scores: [
+      { text: "NDX > SMA50", label: "Intermediate Uptrend Confirmed", color: "emerald" },
+      { text: "NDX > SMA250", label: "Macro Secular Bull Intact", color: "emerald" },
+      { text: "RSI < 75.0", label: "Healthy Momentum (Not Overbought)", color: "emerald" }
+    ],
+    strategyTakeaway: "This is our primary compounding engine. When trend math aligns, we capture the full 3× surge without premature fear."
+  },
+  gear_tqqq_50: {
+    title: "Gear 2: Bearish Divergence Trim (50% TQQQ / 50% Cash)",
+    category: "SYSTEMATIC GEAR 2",
+    icon: "fa-solid fa-shield-halved text-amber",
+    summary: "Preemptive de-risking. Exactly half the portfolio is locked into Cash Yield (4.5%) when price prints higher swing highs while RSI momentum makes a lower peak.",
+    analogy: "Downshifting from 5th to 4th gear when approaching sharp mountain curves. You keep driving fast, but with twice the grip and braking power.",
+    scores: [
+      { text: "50% TQQQ", label: "Ride Remaining Trend Continuation", color: "amber" },
+      { text: "50% Cash", label: "Locked in 4.5% Risk-Free Yield", color: "cyan" },
+      { text: "Trigger Rule", label: "Price High & Lower RSI Peak", color: "amber" }
+    ],
+    strategyTakeaway: "Divergence warns of momentum exhaustion before price drops. Sweeping 50% to cash cuts portfolio drawdown in half while staying in the game."
+  },
+  gear_tqqq_30: {
+    title: "Gear 3: Overbought Momentum Trim (30% TQQQ / 70% Cash)",
+    category: "SYSTEMATIC GEAR 3",
+    icon: "fa-solid fa-fire text-orange",
+    summary: "Parabolic euphoria profit harvest. When daily RSI touches or exceeds 75.0, 70% of portfolio capital is locked into Cash until RSI cools below 60.0.",
+    analogy: "Tapping the brakes as your sports car tachometer redlines. Prevents the engine from blowing up before the road slopes sharply down.",
+    scores: [
+      { text: "RSI ≥ 75.0", label: "Overbought Redline Reached", color: "rose" },
+      { text: "70% Cash", label: "Maximum Profit Protection", color: "emerald" },
+      { text: "Locked < 60", label: "Prevents Premature Buy-Back", color: "amber" }
+    ],
+    strategyTakeaway: "3× leveraged ETFs suffer severe decay during reversals from extreme highs. Harvesting 70% to cash banks life-changing profits at euphoric tops."
+  },
+  gear_cash_100: {
+    title: "Gear 4: Capital Defense (100% Cash / 4.5% Yield)",
+    category: "SYSTEMATIC GEAR 4",
+    icon: "fa-solid fa-vault text-cyan",
+    summary: "Intermediate trend breakdown defense. 100% of capital is moved to Cash / Treasury yield whenever the Nasdaq-100 closes below its 50-day moving average.",
+    analogy: "Pulling off into a safe, covered rest area during a severe blizzard. You sit safely inside earning interest while cars crash outside on the ice.",
+    scores: [
+      { text: "NDX < SMA50", label: "Immediate Bull Exit Trigger", color: "rose" },
+      { text: "100% Cash", label: "Zero Leveraged Drawdown Exposure", color: "emerald" },
+      { text: "4.5% Yield", label: "Risk-Free Daily Interest Compound", color: "cyan" }
+    ],
+    strategyTakeaway: "This rule saved the strategy from the -82% crash of 2022. It preserves dry powder so we can aggressively rebuy when the bottom turns."
+  },
+  gear_sqqq_100: {
+    title: "Gear 5: Macro Bear Inverse (100% SQQQ / 3× Short)",
+    category: "SYSTEMATIC GEAR 5",
+    icon: "fa-solid fa-arrow-trend-down text-rose",
+    summary: "Confirmed macro bear collapse capitalization. Deploys 100% capital into SQQQ (3× Inverse Nasdaq) when both intermediate and macro trends break with bearish RSI (35-55).",
+    analogy: "Engaging 4WD reverse to safely descend a crumbling mountain cliff where other cars are sliding forward into the abyss.",
+    scores: [
+      { text: "NDX < SMA50 & 250", label: "Dual Macro Death Regime", color: "rose" },
+      { text: "RSI 35 – 55", label: "Counter-Trend Bounce Failure", color: "rose" },
+      { text: "3× Inverse", label: "+3% Portfolio Gain per -1% NDX Drop", color: "emerald" }
+    ],
+    strategyTakeaway: "Protected by strict multi-filter rules to avoid choppy sideways head-fakes. Generates powerful crisis alpha during generational bear collapses."
   }
 };
 
@@ -3582,10 +3647,12 @@ function showQuantTooltip(key, triggerElement) {
   if (iconEl) iconEl.className = `${item.icon || "fa-solid fa-graduation-cap"} qtp-icon`;
 
   // Detect which color is active on the hovered card to highlight the matching pill
-  const valEl = triggerElement.querySelector(".qm-value, .sb-metric-val, .val-text") || triggerElement;
+  const valEl = triggerElement.querySelector(".qm-value, .sb-metric-val, .val-text, .gear-pct") || triggerElement;
   let activeColor = "";
   if (valEl.classList.contains("text-emerald")) activeColor = "emerald";
   else if (valEl.classList.contains("text-amber")) activeColor = "amber";
+  else if (valEl.classList.contains("text-orange")) activeColor = "orange";
+  else if (valEl.classList.contains("text-cyan")) activeColor = "cyan";
   else if (valEl.classList.contains("text-rose")) activeColor = "rose";
 
   const pillsContainer = document.getElementById("qtpScorePills");

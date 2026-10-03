@@ -880,6 +880,7 @@ body.tooltips-disabled [data-help] {
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
+  cursor: pointer;
 }
 
 .gear-card:hover {
@@ -930,6 +931,21 @@ body.tooltips-disabled [data-help] {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
+}
+
+.gear-top-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gearbox-title[data-help] {
+  cursor: pointer;
+}
+
+.gear-card .qm-help-icon {
+  margin-left: 0;
+  font-size: 11px;
 }
 
 .gear-badge {
@@ -3448,6 +3464,8 @@ body.tooltips-disabled [data-help] {
 
 .quant-metric-card:hover .qm-help-icon,
 .kpi-card:hover .qm-help-icon,
+.gear-card:hover .qm-help-icon,
+.gearbox-title:hover .qm-help-icon,
 .qm-help-icon:hover {
   color: var(--accent-cyan);
   opacity: 1;
@@ -3593,6 +3611,11 @@ body.tooltips-disabled [data-help] {
   background: rgba(245, 158, 11, 0.15);
   border: 1px solid rgba(245, 158, 11, 0.35);
   color: var(--amber);
+}
+.qtp-pill.orange {
+  background: rgba(249, 115, 22, 0.15);
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  color: var(--orange, #F97316);
 }
 .qtp-pill.cyan {
   background: rgba(0, 242, 254, 0.15);
