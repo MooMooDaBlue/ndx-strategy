@@ -801,6 +801,128 @@ function renderUI(data) {
     }
   }
 
+  // 2b. 5-State Strategy Gearbox & Forward Shift Tripwires
+  const gear100 = document.getElementById("gearTqqq100");
+  const gear50 = document.getElementById("gearTqqq50");
+  const gear30 = document.getElementById("gearTqqq30");
+  const gearCash = document.getElementById("gearCash");
+  const gearSqqq = document.getElementById("gearSqqq");
+
+  const gearCap100 = document.getElementById("gearCapTqqq100");
+  const gearCap50 = document.getElementById("gearCapTqqq50");
+  const gearCap30 = document.getElementById("gearCapTqqq30");
+  const gearCapCash = document.getElementById("gearCapCash");
+  const gearCapSqqq = document.getElementById("gearCapSqqq");
+
+  const gbActiveName = document.getElementById("gearboxActiveGearName");
+  const gbActiveSub = document.getElementById("gearboxActiveGearSub");
+
+  document.querySelectorAll(".gear-card").forEach(c => c.classList.remove("active"));
+
+  if (p.position === "TQQQ_100") {
+    if (gear100) gear100.classList.add("active");
+    if (gbActiveName) {
+      gbActiveName.textContent = "GEAR 1 (100% TQQQ)";
+      gbActiveName.className = "text-emerald";
+    }
+    if (gbActiveSub) gbActiveSub.textContent = `Full Bull Expansion: 100% Capital Invested in TQQQ • 0% Cash Reserve (${formatCurrency(scaledTotal)})`;
+    if (gearCap100) gearCap100.textContent = `Allocated: ${formatCurrency(scaledTotal)}`;
+    if (gearCap50) gearCap50.textContent = "Standby (0%)";
+    if (gearCap30) gearCap30.textContent = "Standby (0%)";
+    if (gearCapCash) gearCapCash.textContent = "Standby (0%)";
+    if (gearCapSqqq) gearCapSqqq.textContent = "Standby (0%)";
+  } else if (p.position === "TQQQ_50") {
+    if (gear50) gear50.classList.add("active");
+    if (gbActiveName) {
+      gbActiveName.textContent = "GEAR 2 (50% TQQQ)";
+      gbActiveName.className = "text-amber";
+    }
+    if (gbActiveSub) gbActiveSub.textContent = `Divergence Trim: 50% Equity (${formatCurrency(scaledTotal * 0.5)}) • 50% Cash (${formatCurrency(scaledTotal * 0.5)})`;
+    if (gearCap100) gearCap100.textContent = "Standby (0%)";
+    if (gearCap50) gearCap50.textContent = `Active: ${formatCurrency(scaledTotal * 0.5)}`;
+    if (gearCap30) gearCap30.textContent = "Standby (0%)";
+    if (gearCapCash) gearCapCash.textContent = `Cash: ${formatCurrency(scaledTotal * 0.5)}`;
+    if (gearCapSqqq) gearCapSqqq.textContent = "Standby (0%)";
+  } else if (p.position === "TQQQ_30") {
+    if (gear30) gear30.classList.add("active");
+    if (gbActiveName) {
+      gbActiveName.textContent = "GEAR 3 (30% TQQQ)";
+      gbActiveName.className = "text-orange";
+    }
+    if (gbActiveSub) gbActiveSub.textContent = `Overbought Trim: 30% Equity (${formatCurrency(scaledTotal * 0.3)}) • 70% Cash (${formatCurrency(scaledTotal * 0.7)})`;
+    if (gearCap100) gearCap100.textContent = "Standby (0%)";
+    if (gearCap50) gearCap50.textContent = "Standby (0%)";
+    if (gearCap30) gearCap30.textContent = `Active: ${formatCurrency(scaledTotal * 0.3)}`;
+    if (gearCapCash) gearCapCash.textContent = `Cash: ${formatCurrency(scaledTotal * 0.7)}`;
+    if (gearCapSqqq) gearCapSqqq.textContent = "Standby (0%)";
+  } else if (p.position === "SQQQ") {
+    if (gearSqqq) gearSqqq.classList.add("active");
+    if (gbActiveName) {
+      gbActiveName.textContent = "GEAR 5 (100% SQQQ)";
+      gbActiveName.className = "text-rose";
+    }
+    if (gbActiveSub) gbActiveSub.textContent = `Macro Bear Inverse: 100% Capital in 3× Short SQQQ (${formatCurrency(scaledTotal)})`;
+    if (gearCap100) gearCap100.textContent = "Standby (0%)";
+    if (gearCap50) gearCap50.textContent = "Standby (0%)";
+    if (gearCap30) gearCap30.textContent = "Standby (0%)";
+    if (gearCapCash) gearCapCash.textContent = "Standby (0%)";
+    if (gearCapSqqq) gearCapSqqq.textContent = `Allocated: ${formatCurrency(scaledTotal)}`;
+  } else {
+    if (gearCash) gearCash.classList.add("active");
+    if (gbActiveName) {
+      gbActiveName.textContent = "GEAR 4 (100% CASH)";
+      gbActiveName.className = "text-cyan";
+    }
+    if (gbActiveSub) gbActiveSub.textContent = `Capital Defense: 100% Cash in 4.5% Treasury Yield (${formatCurrency(scaledTotal)}) • 0% Equity Risk`;
+    if (gearCap100) gearCap100.textContent = "Standby (0%)";
+    if (gearCap50) gearCap50.textContent = "Standby (0%)";
+    if (gearCap30) gearCap30.textContent = "Standby (0%)";
+    if (gearCapCash) gearCapCash.textContent = `Allocated: ${formatCurrency(scaledTotal)}`;
+    if (gearCapSqqq) gearCapSqqq.textContent = "Standby (0%)";
+  }
+
+  // Forward Shift Tripwires HUD
+  const twRsiEl = document.getElementById("twRsiHeadroomVal");
+  const twSma50El = document.getElementById("twSma50Val");
+  const twDefEl = document.getElementById("twDefenseCushionVal");
+  const twSma250El = document.getElementById("twSma250Val");
+  const twBearEl = document.getElementById("twBearDistVal");
+
+  if (twRsiEl) {
+    const twRsiHeadroom = 75.0 - curRsi;
+    if (twRsiHeadroom <= 0) {
+      twRsiEl.textContent = "Trigger Breached (Trim Active)";
+      twRsiEl.className = "tw-val text-rose";
+    } else {
+      twRsiEl.textContent = `+${twRsiHeadroom.toFixed(1)} pts headroom`;
+      twRsiEl.className = "tw-val text-amber";
+    }
+  }
+
+  if (twSma50El) {
+    twSma50El.textContent = curSma50 ? curSma50.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : "--";
+  }
+
+  if (twDefEl) {
+    twDefEl.textContent = `${distPts >= 0 ? "+" : ""}${distPts.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} pts (${distPct >= 0 ? "+" : ""}${distPct.toFixed(2)}%) cushion`;
+    twDefEl.className = `tw-val ${distPts >= 0 ? "text-emerald" : "text-rose"}`;
+  }
+
+  if (twSma250El) {
+    twSma250El.textContent = curSma250 ? curSma250.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : "--";
+  }
+
+  if (twBearEl) {
+    const distSma250 = curNdx - curSma250;
+    if (curNdx < curSma250) {
+      twBearEl.textContent = "Price Below SMA250 (Bear Short Eligible)";
+      twBearEl.className = "tw-val text-rose";
+    } else {
+      twBearEl.textContent = `+${distSma250.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} pts buffer (Standby)`;
+      twBearEl.className = "tw-val text-cyan";
+    }
+  }
+
   // 3. Scaled KPI Cards
 
   document.getElementById("totalValue").textContent = formatCurrency(scaledTotal);
@@ -842,24 +964,29 @@ function renderUI(data) {
   const sma250El = document.getElementById("ndxSma250");
   if (sma250El) sma250El.textContent = curSma250 ? `SMA250: ${curSma250.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : "SMA250: --";
 
-  const rsiEl = document.getElementById("rsiValue");
-  if (rsiEl) rsiEl.textContent = typeof curRsi === "number" ? curRsi.toFixed(1) : "--";
+  // Card 4: Peak Equity & Risk Profile (De-duplicated from RSI which is already in Hero telemetry)
+  const peakHwmEl = document.getElementById("kpiPeakHwm");
+  const drawdownPillEl = document.getElementById("kpiDrawdownPill");
+  const maxDdPillEl = document.getElementById("kpiMaxDdPill");
 
-  const rsiBadge = document.getElementById("rsiZoneBadge");
-  if (rsiBadge) {
-    if (curRsi >= 75) {
-      rsiBadge.textContent = "OVERBOUGHT";
-      rsiBadge.style.color = "#F43F5E";
-      rsiBadge.style.background = "rgba(244, 63, 94, 0.15)";
-    } else if (curRsi <= 30) {
-      rsiBadge.textContent = "OVERSOLD";
-      rsiBadge.style.color = "#00F2FE";
-      rsiBadge.style.background = "rgba(0, 242, 254, 0.15)";
+  const rawHwm = (stats && stats.high_water_mark) || p.total_value;
+  const scaledHwm = rawHwm * scaleFactor;
+  if (peakHwmEl) peakHwmEl.textContent = formatCurrency(scaledHwm);
+
+  const curDrawdownPct = rawHwm > 0 ? ((p.total_value - rawHwm) / rawHwm * 100) : 0;
+  if (drawdownPillEl) {
+    if (Math.abs(curDrawdownPct) < 0.05) {
+      drawdownPillEl.textContent = "0.00% DD (ATH Peak)";
+      drawdownPillEl.className = "pnl-pill positive";
     } else {
-      rsiBadge.textContent = "NEUTRAL";
-      rsiBadge.style.color = "#00E676";
-      rsiBadge.style.background = "rgba(0, 230, 118, 0.15)";
+      drawdownPillEl.textContent = `${curDrawdownPct.toFixed(2)}% DD`;
+      drawdownPillEl.className = "pnl-pill negative";
     }
+  }
+
+  const maxDdVal = (stats && stats.max_drawdown_pct !== undefined) ? stats.max_drawdown_pct : -24.81;
+  if (maxDdPillEl) {
+    maxDdPillEl.textContent = `Max Historical DD: ${maxDdVal.toFixed(2)}%`;
   }
 
   // 4. Institutional Quant Risk & Quality Metrics
@@ -3283,6 +3410,19 @@ const QUANT_EXPLANATIONS = {
       { text: "Crisis Alpha", label: "Protected Capital + Bottom Buy", color: "emerald" }
     ],
     strategyTakeaway: "By holding 100% Cash during down markets, you avoid the -80% drawdowns that wipe out buy-and-hold investors."
+  },
+  allocation_gears: {
+    title: "5-State Systematic Allocation Spectrum",
+    category: "STRATEGY EXECUTION",
+    icon: "fa-solid fa-gears text-cyan",
+    summary: "The strategy operates across 5 discrete mathematical regimes: 100% TQQQ, 50% Divergence Trim, 30% Overbought Trim, 100% Cash Defense, or 100% SQQQ Bear Inverse.",
+    analogy: "Like a precision 5-speed transmission in an endurance racecar: full throttle in straightaways, downshifting into corners, and hitting the brakes before crashes.",
+    scores: [
+      { text: "100% SQQQ", label: "Macro Bear Inverse", color: "rose" },
+      { text: "100% CASH", label: "Capital Defense @ 4.5% Yield", color: "amber" },
+      { text: "100% TQQQ", label: "Full Bull Compound Expansion", color: "emerald" }
+    ],
+    strategyTakeaway: "Eliminates emotional guessing. You always see the active gear, current dollar allocation, and the forward tripwire required to shift into the next state."
   }
 };
 

@@ -429,13 +429,35 @@ body.tooltips-disabled [data-help] {
 }
 
 /* ==========================================================================
-   HERO REGIME TELEMETRY BANNER
+   MARKET TICKER TAPE (TRADINGVIEW STREAMING WIDGET)
+   ========================================================================== */
+.market-ticker-section {
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(12, 17, 29, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.5);
+  min-height: 46px;
+  transition: all 0.25s ease;
+}
+
+.market-ticker-section:hover {
+  border-color: rgba(0, 242, 254, 0.25);
+  box-shadow: 0 6px 24px -4px rgba(0, 242, 254, 0.1);
+}
+
+.tradingview-widget-container {
+  width: 100%;
+}
+
+/* ==========================================================================
+   HERO REGIME TELEMETRY BANNER & 5-STATE GEARBOX COCKPIT
    ========================================================================== */
 .regime-hero-banner {
   display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 28px;
+  flex-direction: column;
+  gap: 20px;
   padding: 24px 28px;
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(13, 18, 30, 0.88) 100%);
   border: 1px solid rgba(16, 185, 129, 0.35);
@@ -444,6 +466,14 @@ body.tooltips-disabled [data-help] {
   position: relative;
   overflow: hidden;
   transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.regime-banner-top {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 28px;
+  width: 100%;
 }
 
 .regime-hero-banner.regime-bear {
@@ -765,7 +795,7 @@ body.tooltips-disabled [data-help] {
 .rsi-marker.marker-75 { left: 75%; color: #F59E0B; }
 
 @media (max-width: 1180px) {
-  .regime-hero-banner {
+  .regime-banner-top {
     flex-direction: column;
     align-items: stretch;
     gap: 20px;
@@ -776,8 +806,334 @@ body.tooltips-disabled [data-help] {
 }
 
 @media (max-width: 768px) {
+  .regime-banner-top {
+    flex-direction: column;
+  }
   .regime-right {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   5-STATE STRATEGY GEARBOX & FORWARD SHIFT TRIPWIRES
+   ========================================================================== */
+.strategy-gearbox-container {
+  background: rgba(10, 15, 26, 0.65);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-top: 4px;
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.strategy-gearbox-container:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.gearbox-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.gearbox-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: var(--text-bright);
+}
+
+.gearbox-active-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.gearbox-active-desc strong {
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.gearbox-track {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.gear-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  opacity: 0.55;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.gear-card:hover {
+  opacity: 0.9;
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.gear-card.active {
+  opacity: 1;
+  transform: translateY(-2px);
+  border-width: 1.5px;
+}
+
+.gear-card.gear-bull.active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(13, 18, 30, 0.8) 100%);
+  border-color: rgba(16, 185, 129, 0.6);
+  box-shadow: 0 0 24px -4px rgba(16, 185, 129, 0.3), inset 0 0 16px -6px rgba(16, 185, 129, 0.2);
+}
+
+.gear-card.gear-caution.active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(13, 18, 30, 0.8) 100%);
+  border-color: rgba(245, 158, 11, 0.6);
+  box-shadow: 0 0 24px -4px rgba(245, 158, 11, 0.3), inset 0 0 16px -6px rgba(245, 158, 11, 0.2);
+}
+
+.gear-card.gear-trim.active {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.12) 0%, rgba(13, 18, 30, 0.8) 100%);
+  border-color: rgba(249, 115, 22, 0.6);
+  box-shadow: 0 0 24px -4px rgba(249, 115, 22, 0.3), inset 0 0 16px -6px rgba(249, 115, 22, 0.2);
+}
+
+.gear-card.gear-defense.active {
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.12) 0%, rgba(13, 18, 30, 0.8) 100%);
+  border-color: rgba(0, 242, 254, 0.6);
+  box-shadow: 0 0 24px -4px rgba(0, 242, 254, 0.3), inset 0 0 16px -6px rgba(0, 242, 254, 0.2);
+}
+
+.gear-card.gear-bear.active {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.12) 0%, rgba(13, 18, 30, 0.8) 100%);
+  border-color: rgba(244, 63, 94, 0.6);
+  box-shadow: 0 0 24px -4px rgba(244, 63, 94, 0.3), inset 0 0 16px -6px rgba(244, 63, 94, 0.2);
+}
+
+.gear-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.gear-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.gear-beacon {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.gear-card.active .gear-beacon {
+  display: inline-flex;
+}
+
+.pulse-beacon {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  animation: pulseDot 1.8s infinite ease-in-out;
+}
+
+.gear-allocation {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.gear-pct {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.gear-cash-pct {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.gear-regime-name {
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gear-rule {
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.35;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.gear-rule i {
+  font-size: 9px;
+  opacity: 0.7;
+}
+
+.gear-capital {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-main);
+  padding-top: 6px;
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.gear-card.active .gear-capital {
+  color: var(--text-bright);
+  font-weight: 700;
+}
+
+/* Forward Shift Tripwires HUD Bar */
+.gearbox-tripwires-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  flex-wrap: wrap;
+}
+
+.tripwire-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.tripwires-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  flex: 1;
+}
+
+.tw-item {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.tw-item:hover {
+  background: rgba(255, 255, 255, 0.045);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.tw-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.tw-left i {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.tw-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.tw-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tw-target {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tw-val {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+@media (max-width: 1200px) {
+  .gearbox-track {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .tripwires-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .gearbox-track {
+    grid-template-columns: 1fr;
+  }
+  .gearbox-tripwires-bar {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 

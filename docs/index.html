@@ -86,89 +86,253 @@
       </div>
     </header>
 
-    <!-- Regime / Signal Banner -->
+    <!-- Real-Time TradingView Market Ticker Tape (Mag 7, S&P 500, QQQ, TQQQ, SQQQ) -->
+    <section class="market-ticker-section">
+      <!-- TradingView Widget BEGIN -->
+      <div class="tradingview-widget-container">
+        <div class="tradingview-widget-container__widget"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
+        {
+          "symbols": [
+            { "proName": "NASDAQ:QQQ", "title": "QQQ" },
+            { "proName": "AMEX:SPY", "title": "S&P 500 (SPY)" },
+            { "proName": "NASDAQ:TQQQ", "title": "TQQQ (3x Bull)" },
+            { "proName": "NASDAQ:SQQQ", "title": "SQQQ (3x Bear)" },
+            { "proName": "NASDAQ:NVDA", "title": "NVDA" },
+            { "proName": "NASDAQ:AAPL", "title": "AAPL" },
+            { "proName": "NASDAQ:MSFT", "title": "MSFT" },
+            { "proName": "NASDAQ:AMZN", "title": "AMZN" },
+            { "proName": "NASDAQ:GOOGL", "title": "GOOGL" },
+            { "proName": "NASDAQ:META", "title": "META" },
+            { "proName": "NASDAQ:TSLA", "title": "TSLA" }
+          ],
+          "showSymbolLogo": true,
+          "isTransparent": true,
+          "displayMode": "adaptive",
+          "colorTheme": "dark",
+          "locale": "en"
+        }
+        </script>
+      </div>
+      <!-- TradingView Widget END -->
+    </section>
+
+    <!-- Regime / Signal Banner & 5-State Strategy Command Cockpit -->
     <section class="regime-hero-banner" id="regimeBanner">
-      <div class="regime-left">
-        <div class="regime-status-row">
-          <div class="regime-badge" id="regimeBadge">
-            <i class="fa-solid fa-shield-halved" id="regimeIcon"></i>
-            <span id="regimeBadgeText">LOADING POSITION...</span>
+      <div class="regime-banner-top">
+        <div class="regime-left">
+          <div class="regime-status-row">
+            <div class="regime-badge" id="regimeBadge">
+              <i class="fa-solid fa-shield-halved" id="regimeIcon"></i>
+              <span id="regimeBadgeText">LOADING POSITION...</span>
+            </div>
+            <div class="regime-sub-badge" id="regimeSubBadge">
+              <span class="regime-beacon-dot"></span>
+              <span id="regimeBeaconText">Systematic Engine Active</span>
+            </div>
           </div>
-          <div class="regime-sub-badge" id="regimeSubBadge">
-            <span class="regime-beacon-dot"></span>
-            <span id="regimeBeaconText">Systematic Engine Active</span>
+          <div class="regime-title" id="regimeHeadline">Scanning Market Data...</div>
+          <div class="regime-desc" id="regimeReason">Calculating signals based on latest close prices.</div>
+
+          <!-- Quick Telemetry Chips Row -->
+          <div class="regime-chips-row">
+            <div class="regime-chip" id="chipHoldings">
+              <i class="fa-solid fa-coins text-cyan"></i>
+              <span><strong>Holdings:</strong> <span id="heroHoldingsText">-- shares</span></span>
+            </div>
+            <div class="regime-chip" id="chipValuation">
+              <i class="fa-solid fa-wallet text-emerald"></i>
+              <span><strong>Valuation:</strong> <span id="heroValuationText">$--</span></span>
+            </div>
+            <div class="regime-chip" id="chipStopLine">
+              <i class="fa-solid fa-shield-halved text-purple"></i>
+              <span><strong>SMA50 Floor:</strong> <span id="heroSma50Text">--</span></span>
+            </div>
           </div>
         </div>
-        <div class="regime-title" id="regimeHeadline">Scanning Market Data...</div>
-        <div class="regime-desc" id="regimeReason">Calculating signals based on latest close prices.</div>
 
-        <!-- Quick Telemetry Chips Row -->
-        <div class="regime-chips-row">
-          <div class="regime-chip" id="chipHoldings">
-            <i class="fa-solid fa-coins text-cyan"></i>
-            <span><strong>Holdings:</strong> <span id="heroHoldingsText">-- shares</span></span>
+        <div class="regime-right">
+          <!-- Telemetry Card 1: Active Asset Price (TQQQ / SQQQ) -->
+          <div class="hero-telemetry-card" id="telemetryAssetCard">
+            <div class="ht-header">
+              <span class="ht-label">ACTIVE ASSET PRICE</span>
+              <span class="ht-badge badge-bull" id="heroAssetBadge">TQQQ 3× BULL</span>
+            </div>
+            <div class="ht-primary-val" id="heroAssetPrice">$--</div>
+            <div class="ht-sub-val" id="heroAssetSub">
+              <span>Avg Cost: <strong id="heroAvgCost">$--</strong></span>
+              <span class="ht-pnl-pill positive" id="heroUnrealizedPill">--%</span>
+            </div>
+            <div class="ht-secondary-quote" id="heroSecondaryQuote">
+              <span>SQQQ (Inverse): <strong id="heroSqqqPrice">$--</strong></span>
+            </div>
           </div>
-          <div class="regime-chip" id="chipValuation">
-            <i class="fa-solid fa-wallet text-emerald"></i>
-            <span><strong>Valuation:</strong> <span id="heroValuationText">$--</span></span>
+
+          <!-- Telemetry Card 2: RSI-14 Momentum Gauge (RSI as Primary, Headroom as Secondary) -->
+          <div class="hero-telemetry-card" id="telemetryRsiCard" data-help="rsi">
+            <div class="ht-header">
+              <span class="ht-label">RSI-14 MOMENTUM <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
+              <span class="ht-badge badge-neutral" id="heroRsiBadge">NORMAL</span>
+            </div>
+            <div class="ht-primary-val" id="heroRsiVal">--</div>
+            
+            <!-- Visual RSI progress track with markers -->
+            <div class="rsi-meter-track" title="Momentum Gauge: 30 Oversold | 50 Neutral | 75 Overbought Trim">
+              <div class="rsi-meter-fill" id="heroRsiMeterFill" style="width: 50%;"></div>
+              <span class="rsi-marker marker-30">30</span>
+              <span class="rsi-marker marker-50">50</span>
+              <span class="rsi-marker marker-75">75</span>
+            </div>
+
+            <div class="ht-sub-val" id="heroRsiSub">
+              <span>Headroom: <strong id="heroRsiHeadroomText">-- pts</strong> to Trim (75.0)</span>
+            </div>
           </div>
-          <div class="regime-chip" id="chipStopLine">
-            <i class="fa-solid fa-shield-halved text-purple"></i>
-            <span><strong>SMA50 Floor:</strong> <span id="heroSma50Text">--</span></span>
+
+          <!-- Telemetry Card 3: Downside Stop Cushion -->
+          <div class="hero-telemetry-card" id="telemetryDefenseCard" data-help="sma50">
+            <div class="ht-header">
+              <span class="ht-label">DOWNSIDE STOP CUSHION <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
+              <span class="ht-badge badge-bull" id="heroDefenseBadge">SAFE BUFFER</span>
+            </div>
+            <div class="ht-primary-val text-emerald" id="heroDistSma50Text">-- pts</div>
+            <div class="ht-sub-val" id="heroDistSma50Pct">
+              <span>Cushion: <strong id="heroCushionPct">--%</strong> above SMA50</span>
+            </div>
+            <div class="ht-secondary-quote" id="heroDefenseSub">
+              <span>Exit Trigger if NDX &lt; <strong id="heroExitPriceText">--</strong></span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="regime-right">
-        <!-- Telemetry Card 1: Active Asset Price (TQQQ / SQQQ) -->
-        <div class="hero-telemetry-card" id="telemetryAssetCard">
-          <div class="ht-header">
-            <span class="ht-label">ACTIVE ASSET PRICE</span>
-            <span class="ht-badge badge-bull" id="heroAssetBadge">TQQQ 3× BULL</span>
+      <!-- 5-State Strategy Gearbox Panel -->
+      <div class="strategy-gearbox-container" id="strategyGearbox" data-help="allocation_gears">
+        <div class="gearbox-header">
+          <div class="gearbox-title">
+            <i class="fa-solid fa-gears text-cyan"></i>
+            <span>SYSTEMATIC ALLOCATION SPECTRUM (THE 5 GEARS)</span>
+            <i class="fa-regular fa-circle-question qm-help-icon"></i>
           </div>
-          <div class="ht-primary-val" id="heroAssetPrice">$--</div>
-          <div class="ht-sub-val" id="heroAssetSub">
-            <span>Avg Cost: <strong id="heroAvgCost">$--</strong></span>
-            <span class="ht-pnl-pill positive" id="heroUnrealizedPill">--%</span>
-          </div>
-          <div class="ht-secondary-quote" id="heroSecondaryQuote">
-            <span>SQQQ (Inverse): <strong id="heroSqqqPrice">$--</strong></span>
+          <div class="gearbox-active-desc" id="gearboxActiveDesc">
+            Current State: <strong class="text-emerald" id="gearboxActiveGearName">GEAR 1 (100% TQQQ)</strong> • <span id="gearboxActiveGearSub">Full Bull Expansion: 100% Capital Invested in TQQQ / 0% Cash Reserve</span>
           </div>
         </div>
 
-        <!-- Telemetry Card 2: RSI-14 Momentum Gauge (RSI as Primary, Headroom as Secondary) -->
-        <div class="hero-telemetry-card" id="telemetryRsiCard" data-help="rsi">
-          <div class="ht-header">
-            <span class="ht-label">RSI-14 MOMENTUM <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
-            <span class="ht-badge badge-neutral" id="heroRsiBadge">NORMAL</span>
-          </div>
-          <div class="ht-primary-val" id="heroRsiVal">--</div>
-          
-          <!-- Visual RSI progress track with markers -->
-          <div class="rsi-meter-track" title="Momentum Gauge: 30 Oversold | 50 Neutral | 75 Overbought Trim">
-            <div class="rsi-meter-fill" id="heroRsiMeterFill" style="width: 50%;"></div>
-            <span class="rsi-marker marker-30">30</span>
-            <span class="rsi-marker marker-50">50</span>
-            <span class="rsi-marker marker-75">75</span>
+        <div class="gearbox-track">
+          <!-- Gear 1 -->
+          <div class="gear-card gear-bull active" id="gearTqqq100">
+            <div class="gear-top">
+              <span class="gear-badge badge-bull">GEAR 1</span>
+              <span class="gear-beacon" id="beaconTqqq100"><span class="pulse-beacon"></span> ACTIVE</span>
+            </div>
+            <div class="gear-allocation">
+              <span class="gear-pct text-emerald">100% TQQQ</span>
+              <span class="gear-cash-pct">0% Cash</span>
+            </div>
+            <div class="gear-regime-name">Full Bull Expansion</div>
+            <div class="gear-rule"><i class="fa-solid fa-code-fork"></i> NDX &gt; SMA50 &amp; SMA250, RSI &lt; 75</div>
+            <div class="gear-capital" id="gearCapTqqq100">Allocated: $--</div>
           </div>
 
-          <div class="ht-sub-val" id="heroRsiSub">
-            <span>Headroom: <strong id="heroRsiHeadroomText">-- pts</strong> to Trim (75.0)</span>
+          <!-- Gear 2 -->
+          <div class="gear-card gear-caution" id="gearTqqq50">
+            <div class="gear-top">
+              <span class="gear-badge badge-warning">GEAR 2</span>
+              <span class="gear-beacon" id="beaconTqqq50"><span class="pulse-beacon"></span> ACTIVE</span>
+            </div>
+            <div class="gear-allocation">
+              <span class="gear-pct text-amber">50% TQQQ</span>
+              <span class="gear-cash-pct">50% Cash</span>
+            </div>
+            <div class="gear-regime-name">Divergence Trim</div>
+            <div class="gear-rule"><i class="fa-solid fa-code-fork"></i> Price High &amp; Lower RSI High</div>
+            <div class="gear-capital" id="gearCapTqqq50">Standby (0%)</div>
+          </div>
+
+          <!-- Gear 3 -->
+          <div class="gear-card gear-trim" id="gearTqqq30">
+            <div class="gear-top">
+              <span class="gear-badge badge-warning">GEAR 3</span>
+              <span class="gear-beacon" id="beaconTqqq30"><span class="pulse-beacon"></span> ACTIVE</span>
+            </div>
+            <div class="gear-allocation">
+              <span class="gear-pct text-orange">30% TQQQ</span>
+              <span class="gear-cash-pct">70% Cash</span>
+            </div>
+            <div class="gear-regime-name">Overbought Trim</div>
+            <div class="gear-rule"><i class="fa-solid fa-code-fork"></i> RSI ≥ 75.0 (Lock until &lt; 60)</div>
+            <div class="gear-capital" id="gearCapTqqq30">Standby (0%)</div>
+          </div>
+
+          <!-- Gear 4 -->
+          <div class="gear-card gear-defense" id="gearCash">
+            <div class="gear-top">
+              <span class="gear-badge badge-neutral">GEAR 4</span>
+              <span class="gear-beacon" id="beaconCash"><span class="pulse-beacon"></span> ACTIVE</span>
+            </div>
+            <div class="gear-allocation">
+              <span class="gear-pct text-cyan">100% CASH</span>
+              <span class="gear-cash-pct">4.5% Yield</span>
+            </div>
+            <div class="gear-regime-name">Capital Defense</div>
+            <div class="gear-rule"><i class="fa-solid fa-code-fork"></i> NDX &lt; SMA50 Exit Trigger</div>
+            <div class="gear-capital" id="gearCapCash">Standby (0%)</div>
+          </div>
+
+          <!-- Gear 5 -->
+          <div class="gear-card gear-bear" id="gearSqqq">
+            <div class="gear-top">
+              <span class="gear-badge badge-bear">GEAR 5</span>
+              <span class="gear-beacon" id="beaconSqqq"><span class="pulse-beacon"></span> ACTIVE</span>
+            </div>
+            <div class="gear-allocation">
+              <span class="gear-pct text-rose">100% SQQQ</span>
+              <span class="gear-cash-pct">3× Short</span>
+            </div>
+            <div class="gear-regime-name">Macro Bear Inverse</div>
+            <div class="gear-rule"><i class="fa-solid fa-code-fork"></i> NDX &lt; SMA50 &amp; 250, RSI 35-55</div>
+            <div class="gear-capital" id="gearCapSqqq">Standby (0%)</div>
           </div>
         </div>
 
-        <!-- Telemetry Card 3: Downside Stop Cushion -->
-        <div class="hero-telemetry-card" id="telemetryDefenseCard" data-help="sma50">
-          <div class="ht-header">
-            <span class="ht-label">DOWNSIDE STOP CUSHION <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
-            <span class="ht-badge badge-bull" id="heroDefenseBadge">SAFE BUFFER</span>
+        <!-- Forward Shift Tripwires HUD -->
+        <div class="gearbox-tripwires-bar">
+          <div class="tripwire-title">
+            <i class="fa-solid fa-crosshairs text-cyan"></i>
+            <span>NEXT SHIFT TRIPWIRES</span>
           </div>
-          <div class="ht-primary-val text-emerald" id="heroDistSma50Text">-- pts</div>
-          <div class="ht-sub-val" id="heroDistSma50Pct">
-            <span>Cushion: <strong id="heroCushionPct">--%</strong> above SMA50</span>
-          </div>
-          <div class="ht-secondary-quote" id="heroDefenseSub">
-            <span>Exit Trigger if NDX &lt; <strong id="heroExitPriceText">--</strong></span>
+          <div class="tripwires-list">
+            <div class="tw-item">
+              <div class="tw-left">
+                <i class="fa-solid fa-gauge-high text-amber"></i>
+                <div class="tw-meta">
+                  <span class="tw-label">Overbought Trim (Gear 3)</span>
+                  <span class="tw-target">Trigger at RSI ≥ 75.0</span>
+                </div>
+              </div>
+              <span class="tw-val text-amber" id="twRsiHeadroomVal">+9.7 pts headroom</span>
+            </div>
+            <div class="tw-item">
+              <div class="tw-left">
+                <i class="fa-solid fa-shield-halved text-rose"></i>
+                <div class="tw-meta">
+                  <span class="tw-label">Defense Exit (Gear 4)</span>
+                  <span class="tw-target">Trigger if NDX &lt; SMA50 (<span id="twSma50Val">--</span>)</span>
+                </div>
+              </div>
+              <span class="tw-val text-emerald" id="twDefenseCushionVal">+1,350.0 pts (+4.58%)</span>
+            </div>
+            <div class="tw-item">
+              <div class="tw-left">
+                <i class="fa-solid fa-arrow-down-trend-spread text-purple"></i>
+                <div class="tw-meta">
+                  <span class="tw-label">Macro Short (Gear 5)</span>
+                  <span class="tw-target">Trigger if NDX &lt; SMA250 (<span id="twSma250Val">--</span>)</span>
+                </div>
+              </div>
+              <span class="tw-val text-cyan" id="twBearDistVal">+3,783.3 pts buffer (Standby)</span>
+            </div>
           </div>
         </div>
       </div>
@@ -215,16 +379,16 @@
         </div>
       </div>
 
-      <!-- Card 4: RSI Indicator -->
-      <div class="kpi-card card-glow-pink" data-help="rsi">
+      <!-- Card 4: Peak Equity & Risk Profile (De-duplicated from RSI) -->
+      <div class="kpi-card card-glow-pink" data-help="hwm">
         <div class="kpi-top">
-          <span class="kpi-title">RSI (14) MOMENTUM <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
-          <span class="kpi-icon-box"><i class="fa-solid fa-gauge-high"></i></span>
+          <span class="kpi-title">PEAK EQUITY &amp; RISK PROFILE <i class="fa-regular fa-circle-question qm-help-icon"></i></span>
+          <span class="kpi-icon-box"><i class="fa-solid fa-mountain-sun"></i></span>
         </div>
-        <div class="kpi-value" id="rsiValue">0.0</div>
+        <div class="kpi-value" id="kpiPeakHwm">$0.00</div>
         <div class="kpi-footer">
-          <span class="rsi-zone-badge" id="rsiZoneBadge">NORMAL</span>
-          <span class="kpi-subtext">Overbought: 75 | Oversold: 30</span>
+          <span class="pnl-pill positive" id="kpiDrawdownPill">0.00% DD (ATH)</span>
+          <span class="kpi-subtext" id="kpiMaxDdPill">Max DD: -24.81%</span>
         </div>
       </div>
     </section>
