@@ -130,6 +130,14 @@
               <span class="regime-beacon-dot"></span>
               <span id="regimeBeaconText">Systematic Engine Active</span>
             </div>
+            <div class="regime-sub-badge regime-streak-badge" id="heroStreakBadge" title="Consecutive trading sessions in current position regime">
+              <i class="fa-solid fa-fire text-amber"></i>
+              <span id="heroStreakText">-- Day Streak</span>
+            </div>
+            <div class="regime-sub-badge" id="heroAthBadge" title="NASDAQ-100 distance from All-Time High">
+              <i class="fa-solid fa-chart-line text-cyan"></i>
+              <span id="heroAthText">-- vs ATH</span>
+            </div>
           </div>
           <div class="regime-title" id="regimeHeadline">Scanning Market Data...</div>
           <div class="regime-desc" id="regimeReason">Calculating signals based on latest close prices.</div>
@@ -540,11 +548,8 @@
       </div>
     </section>
 
-    <!-- Main Content Layout (Left: Charts & Table, Right: Telemetry & Terminal) -->
+    <!-- Main Content Layout (Full-Width Panoramic Flow) -->
     <main class="dashboard-body">
-      
-      <!-- Left Column: Interactive Visualizations -->
-      <div class="col-main">
         
         <!-- Interactive Chart Card -->
         <div class="panel-card chart-panel">
@@ -781,168 +786,41 @@
           </div>
         </div>
 
-      </div>
-
-      <!-- Right Column: Sidebar Metrics, Gauges & Live Terminal -->
-      <div class="col-sidebar">
-        
-        <!-- Forward-Looking Trigger Radar -->
-        <div class="panel-card radar-panel">
-          <div class="panel-header">
-            <div class="panel-title-group">
-              <i class="fa-solid fa-crosshairs panel-icon text-cyan"></i>
-              <div>
-                <h3 class="panel-title">Forward Trigger Radar</h3>
-                <span class="panel-subtitle">Next-session execution thresholds</span>
-              </div>
-            </div>
-            <span class="radar-live-badge"><span class="pulse-cyan"></span> ACTIVE WATCH</span>
-          </div>
-
-          <div class="radar-body">
-            <!-- Exit Trigger Threshold -->
-            <div class="radar-item">
-              <div class="radar-item-top">
-                <div class="radar-badge badge-exit"><i class="fa-solid fa-arrow-down"></i> DOWNSIDE EXIT TO CASH</div>
-                <span class="radar-target font-mono" id="radarExitPrice">NDX --</span>
-              </div>
-              <div class="radar-metric-row">
-                <span class="radar-label">Distance to Stop</span>
-                <span class="radar-cushion font-mono" id="radarExitDistance">-- pts (--%)</span>
-              </div>
-              <div class="radar-condition" id="radarExitCondition">Requires NDX close below exit line</div>
-            </div>
-
-            <!-- Overbought Trim Threshold -->
-            <div class="radar-item">
-              <div class="radar-item-top">
-                <div class="radar-badge badge-trim"><i class="fa-solid fa-scissors"></i> RSI 75 OVERBOUGHT TRIM</div>
-                <span class="radar-target font-mono" id="radarRsiTarget">RSI &ge; 75.0</span>
-              </div>
-              <div class="radar-metric-row">
-                <span class="radar-label">Momentum Headroom</span>
-                <span class="radar-cushion text-pink font-mono" id="radarRsiHeadroom">-- pts remaining</span>
-              </div>
-              <div class="radar-condition">Automatic position derisking to 30% TQQQ</div>
-            </div>
-
-            <!-- Regime Streak & ATH Proximity -->
-            <div class="radar-stats-grid">
-              <div class="radar-mini-stat">
-                <span class="radar-mini-label">Regime Streak</span>
-                <span class="radar-mini-val text-cyan font-mono" id="radarRegimeStreak">-- days</span>
-              </div>
-              <div class="radar-mini-stat">
-                <span class="radar-mini-label">ATH Proximity</span>
-                <span class="radar-mini-val font-mono" id="radarAthProximity">--</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Strategy Telemetry Gauges -->
-        <div class="panel-card sidebar-panel">
-          <div class="panel-header">
-            <div class="panel-title-group">
-              <i class="fa-solid fa-satellite-dish panel-icon"></i>
-              <h3 class="panel-title">Strategy Telemetry</h3>
-            </div>
-          </div>
-
-          <div class="telemetry-body">
-            <!-- Gauge 1: Exit Threshold Distance -->
-            <div class="telemetry-item">
-              <div class="telemetry-labels">
-                <span>SMA50 Safety Buffer</span>
-                <span class="text-emerald font-mono" id="telSma50Val">--</span>
-              </div>
-              <div class="progress-bar-track">
-                <div class="progress-bar-fill fill-emerald" id="telSma50Fill" style="width: 50%;"></div>
-              </div>
-              <div class="telemetry-hint">Trigger level: Price &lt; SMA50 (29,410.9)</div>
-            </div>
-
-            <!-- Gauge 2: RSI Overbought Trim Distance -->
-            <div class="telemetry-item">
-              <div class="telemetry-labels">
-                <span>RSI Heat Level</span>
-                <span class="text-pink font-mono" id="telRsiVal">-- / 75</span>
-              </div>
-              <div class="progress-bar-track">
-                <div class="progress-bar-fill fill-pink" id="telRsiFill" style="width: 61%;"></div>
-              </div>
-              <div class="telemetry-hint">Trim level: RSI &ge; 75.0 (Trim to 30% TQQQ)</div>
-            </div>
-
-            <!-- Gauge 3: Asset Allocation -->
-            <div class="telemetry-item">
-              <div class="telemetry-labels">
-                <span>Portfolio Asset Mix</span>
-                <span class="text-cyan font-mono" id="telAllocVal">100% TQQQ</span>
-              </div>
-              <div class="allocation-bar">
-                <div class="alloc-segment alloc-tqqq" id="allocTqqq" style="width: 100%;" title="TQQQ"></div>
-                <div class="alloc-segment alloc-cash" id="allocCash" style="width: 0%;" title="Cash"></div>
-              </div>
-              <div class="alloc-legend">
-                <span><span class="legend-dot dot-tqqq"></span> TQQQ (<span id="allocTqqqPct">100%</span>)</span>
-                <span><span class="legend-dot dot-cash"></span> Cash (<span id="allocCashPct">0%</span>)</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Quick Stats Grid -->
-          <div class="sidebar-stats-grid">
-            <div class="stat-pill">
-              <span class="stat-pill-label">Total Trades</span>
-              <span class="stat-pill-val" id="statTotalTrades">--</span>
-            </div>
-            <div class="stat-pill">
-              <span class="stat-pill-label">Sessions Tracked</span>
-              <span class="stat-pill-val" id="statDaysTracked">--</span>
-            </div>
-            <div class="stat-pill">
-              <span class="stat-pill-label">Max Drawdown</span>
-              <span class="stat-pill-val text-rose" id="statMaxDD">--</span>
-            </div>
-            <div class="stat-pill">
-              <span class="stat-pill-label">High Water Mark</span>
-              <span class="stat-pill-val" id="statHWM">--</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Live Terminal / Strategy Log Window -->
+        <!-- Live Terminal / Strategy Log Window (Full-Width Dedicated Console) -->
         <div class="panel-card terminal-panel">
-          <div class="terminal-header">
-            <div class="terminal-dots">
-              <span class="term-dot red"></span>
-              <span class="term-dot yellow"></span>
-              <span class="term-dot green"></span>
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <div class="terminal-dots">
+                <span class="term-dot red"></span>
+                <span class="term-dot yellow"></span>
+                <span class="term-dot green"></span>
+              </div>
+              <div>
+                <h3 class="panel-title font-mono">strategy.log [live stream]</h3>
+                <span class="panel-subtitle">Real-time systematic execution logs and automated order fill receipts</span>
+              </div>
             </div>
-            <span class="terminal-title font-mono">strategy.log [live stream]</span>
-            <button class="btn-term-action" id="btnCopyLog" title="Copy Log to Clipboard">
-              <i class="fa-regular fa-copy"></i>
-            </button>
+
+            <div class="terminal-header-actions">
+              <div class="term-status-pill">
+                <span class="pulse-green sm"></span>
+                <span>SYSTEM SYNCHRONIZED</span>
+              </div>
+              <label class="term-autoscroll">
+                <input type="checkbox" id="chkAutoScroll" checked>
+                <span>Auto-scroll</span>
+              </label>
+              <button class="btn-term-action" id="btnCopyLog" title="Copy Log to Clipboard">
+                <i class="fa-regular fa-copy"></i>
+                <span>Copy Log</span>
+              </button>
+            </div>
           </div>
 
           <div class="terminal-window" id="terminalWindow">
             <div class="terminal-loader font-mono text-muted">Listening for strategy log output...</div>
           </div>
-
-          <div class="terminal-footer">
-            <div class="term-status-pill">
-              <span class="pulse-green sm"></span>
-              <span>SYNCHRONIZED</span>
-            </div>
-            <label class="term-autoscroll">
-              <input type="checkbox" id="chkAutoScroll" checked>
-              <span>Auto-scroll</span>
-            </label>
-          </div>
         </div>
-
-      </div>
 
     </main>
 

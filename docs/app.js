@@ -989,23 +989,59 @@ function renderUI(data) {
     maxDdPillEl.textContent = `Max Historical DD: ${maxDdVal.toFixed(2)}%`;
   }
 
+  // 3b. Hero Streak & ATH Proximity Badges (Promoted to Hero Cockpit)
+  renderHeroStreakAndAth(data, p, curNdx);
+
   // 4. Institutional Quant Risk & Quality Metrics
   renderQuantMetrics(data);
 
-  // 5. Forward Trigger Radar
-  renderTriggerRadar(data);
-
-  // 6. Annual Performance & Crisis Alpha Matrix
+  // 5. Annual Performance & Crisis Alpha Matrix
   renderAnnualMatrix(data);
 
-  // 7. Telemetry Sidebar Gauges
-  renderSidebarTelemetry(data, scaleFactor);
-
-  // 8. Trade Table / Round-Trip Inspector
+  // 6. Trade Table / Round-Trip Inspector
   renderTradesTable(modelObj.trades || data.trades);
 
-  // 9. Strategy Log Terminal
+  // 7. Strategy Log Terminal
   renderTerminal(modelObj.recent_logs || data.recent_logs);
+}
+
+function renderHeroStreakAndAth(data, p, curNdx) {
+  const modelObj = (data.models && data.models[currentModel]) ? data.models[currentModel] : data;
+  const daily = modelObj.daily_summary || data.daily_summary || [];
+  if (!daily || daily.length === 0) return;
+
+  // Streak calculation (consecutive trading sessions in current position)
+  let streak = 0;
+  const targetPos = p.position;
+  for (let i = daily.length - 1; i >= 0; i--) {
+    if (daily[i].position === targetPos) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  const elStreak = document.getElementById("heroStreakText");
+  if (elStreak) {
+    elStreak.textContent = `${streak} Session Streak`;
+  }
+
+  // All-Time High Proximity
+  let maxNdx = 0;
+  for (let i = 0; i < daily.length; i++) {
+    if (daily[i].ndx_price > maxNdx) maxNdx = daily[i].ndx_price;
+  }
+  const athDiffPct = maxNdx > 0 ? ((curNdx / maxNdx) - 1) * 100 : 0;
+  const elAth = document.getElementById("heroAthText");
+  const athBadge = document.getElementById("heroAthBadge");
+  if (elAth) {
+    if (athDiffPct >= -0.05) {
+      elAth.textContent = "All-Time High (ATH)";
+      if (athBadge) athBadge.className = "regime-sub-badge text-emerald";
+    } else {
+      elAth.textContent = `${athDiffPct.toFixed(2)}% vs ATH`;
+    }
+  }
 }
 
 /* ==========================================================================
