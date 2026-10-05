@@ -252,7 +252,8 @@ def decide_signal(price: float, s50: float, s250: float, rsi_val: float, atr_val
             signal, reason = "TQQQ_50", "Bearish RSI divergence — trimming to 50%"
         else:
             signal = "TQQQ_100"
-            reason = f"Bull trend confirmed: Price > SMA50 & SMA250, RSI {rsi_val:.1f}"
+            reason = (f"Full bull: NDX {price:,.1f} is above SMA50 ({s50:,.1f}) and SMA250 ({s250:,.1f}); "
+                      f"RSI {rsi_val:.1f} is below the {cfg['rsi_overbought']} overbought trim line")
     elif below_50:  # below both SMAs
         trim_active = False
         if cfg["rsi_sqqq_entry_min"] <= rsi_val <= cfg["rsi_sqqq_entry_max"]:
@@ -744,6 +745,8 @@ def run_strategy(model: str = "symmetric_atr", portfolio_file: str = None,
         prev_position = portfolio["position"]
         portfolio, trades = execute_trade(portfolio, signal_data, tqqq_price, sqqq_price, cfg)
 
+        # Always reflect today's evaluation, not just the reason from the last trade
+        portfolio["last_signal"] = signal_data["reason"]
         portfolio["last_run_date"] = today_str
         portfolio["last_updated"] = now.isoformat()
         save_portfolio(portfolio, portfolio_file)

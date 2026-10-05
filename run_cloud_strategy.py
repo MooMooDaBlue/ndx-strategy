@@ -91,12 +91,13 @@ def export_pages_data():
 
 
 def in_execution_window() -> bool:
-    """15:45-17:30 ET. Works year-round regardless of DST; FORCE_RUN=true bypasses."""
+    """15:45-23:59 ET (same session day). GitHub cron is often hours late, so the window must be
+    wide; _already_ran_today() keeps it to one run per day. FORCE_RUN=true bypasses."""
     if os.environ.get("FORCE_RUN", "").lower() in ("1", "true", "yes"):
         return True
     t = ts.now_et()
     minutes = t.hour * 60 + t.minute
-    return 15 * 60 + 45 <= minutes <= 17 * 60 + 30
+    return 15 * 60 + 45 <= minutes <= 23 * 60 + 59
 
 
 def _already_ran_today() -> bool:
@@ -117,7 +118,7 @@ def main():
         print("  Not an NYSE trading day — nothing to do.")
         return
     if not in_execution_window():
-        print(f"  Outside 15:45-17:30 ET window (now {ts.now_et():%H:%M} ET) — skipping.")
+        print(f"  Outside 15:45-23:59 ET window (now {ts.now_et():%H:%M} ET) — skipping.")
         return
     if _already_ran_today():
         print("  Both models already ran today — skipping.")

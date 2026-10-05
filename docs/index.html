@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NDX Quant Strategy — Paper Trading Terminal</title>
+  <title>NDX Quant Strategy â€” Paper Trading Terminal</title>
   
   <!-- Modern Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,7 +20,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   
-  <link rel="stylesheet" href="style.css?v=3.3.0">
+  <link rel="stylesheet" href="style.css?v=3.3.1">
 </head>
 <body>
   <div class="app-container">
@@ -48,7 +48,7 @@
         </div>
         <div class="time-widget">
           <span id="clockTimeMT">--:--:-- MT</span>
-          <span class="time-sep">•</span>
+          <span class="time-sep">â€¢</span>
           <span id="clockTimeEST">--:--:-- EST</span>
         </div>
       </div>
@@ -162,7 +162,7 @@
           <div class="hero-telemetry-card" id="telemetryAssetCard">
             <div class="ht-header">
               <span class="ht-label">ACTIVE ASSET PRICE</span>
-              <span class="ht-badge badge-bull" id="heroAssetBadge">TQQQ 3× BULL</span>
+              <span class="ht-badge badge-bull" id="heroAssetBadge">TQQQ 3Ã— BULL</span>
             </div>
             <div class="ht-primary-val" id="heroAssetPrice">$--</div>
             <div class="ht-sub-val" id="heroAssetSub">
@@ -221,7 +221,7 @@
             <i class="fa-regular fa-circle-question qm-help-icon" title="View 5-Gear Spectrum System Overview"></i>
           </div>
           <div class="gearbox-active-desc" id="gearboxActiveDesc">
-            Current State: <strong class="text-emerald" id="gearboxActiveGearName">GEAR 1 (100% TQQQ)</strong> • <span id="gearboxActiveGearSub">Full Bull Expansion: 100% Capital Invested in TQQQ / 0% Cash Reserve</span>
+            Current State: <strong class="text-emerald" id="gearboxActiveGearName">GEAR 1 (100% TQQQ)</strong> â€¢ <span id="gearboxActiveGearSub">Full Bull Expansion: 100% Capital Invested in TQQQ / 0% Cash Reserve</span>
           </div>
         </div>
 
@@ -276,7 +276,7 @@
               <span class="gear-cash-pct">70% Cash</span>
             </div>
             <div class="gear-regime-name">Overbought Trim</div>
-            <div class="gear-rule"><i class="fa-solid fa-code-fork"></i> RSI ≥ 75.0 (Lock until &lt; 60)</div>
+            <div class="gear-rule"><i class="fa-solid fa-code-fork"></i> RSI â‰¥ 75.0 (Lock until &lt; 60)</div>
             <div class="gear-capital" id="gearCapTqqq30">Standby (0%)</div>
           </div>
 
@@ -309,7 +309,7 @@
             </div>
             <div class="gear-allocation">
               <span class="gear-pct text-rose">100% SQQQ</span>
-              <span class="gear-cash-pct">3× Short</span>
+              <span class="gear-cash-pct">3Ã— Short</span>
             </div>
             <div class="gear-regime-name">Macro Bear Inverse</div>
             <div class="gear-rule"><i class="fa-solid fa-code-fork"></i> NDX &lt; SMA50 &amp; 250, RSI 35-55</div>
@@ -329,7 +329,7 @@
                 <i class="fa-solid fa-gauge-high text-amber"></i>
                 <div class="tw-meta">
                   <span class="tw-label">Overbought Trim (Gear 3)</span>
-                  <span class="tw-target">Trigger at RSI ≥ 75.0</span>
+                  <span class="tw-target">Trigger at RSI â‰¥ 75.0</span>
                 </div>
               </div>
               <span class="tw-val text-amber" id="twRsiHeadroomVal">+9.7 pts headroom</span>
@@ -422,7 +422,7 @@
       </div>
       <div class="qsh-window-badge" id="qmWindowBadge">
         <i class="fa-regular fa-calendar-check"></i>
-        <span id="qmWindowText">Window: Full 16-Year Audit (2010–2026)</span>
+        <span id="qmWindowText">Window: Full 16-Year Audit (2010â€“2026)</span>
       </div>
     </div>
     <section class="quant-metrics-strip" id="quantMetricsStrip">
@@ -510,7 +510,7 @@
           <button class="model-toggle-btn active" id="btnModelSymmetric" data-model="symmetric_atr">
             <span class="model-icon-tag"><i class="fa-solid fa-shield-halved"></i></span>
             <div class="model-btn-info">
-              <span class="model-name">Symmetric 1.0× ATR</span>
+              <span class="model-name">Symmetric 1.0Ã— ATR</span>
               <span class="model-desc">Macro Defensive Hysteresis Buffer</span>
             </div>
             <span class="model-badge-stat badge-cyan">+3,521% (16Y)</span>
@@ -606,11 +606,11 @@
               </div>
               <div class="range-presets-row">
                 <span class="range-presets-label"><i class="fa-solid fa-bookmark text-amber"></i> Quick Eras:</span>
-                <button type="button" class="range-preset-tag" data-start="2010-02-11" data-end="2015-12-31">2010–2015 Post-GFC Bull</button>
+                <button type="button" class="range-preset-tag" data-start="2010-02-11" data-end="2015-12-31">2010â€“2015 Post-GFC Bull</button>
                 <button type="button" class="range-preset-tag" data-start="2018-01-01" data-end="2018-12-31">2018 Volmageddon & Q4 Bear</button>
                 <button type="button" class="range-preset-tag" data-start="2020-01-01" data-end="2020-12-31">2020 COVID Flash Crash</button>
                 <button type="button" class="range-preset-tag" data-start="2022-01-01" data-end="2022-12-31">2022 Tech Bear (-80% TQQQ)</button>
-                <button type="button" class="range-preset-tag" data-start="2023-01-01" data-end="2026-10-01">2023–2026 AI Megacap Rally</button>
+                <button type="button" class="range-preset-tag" data-start="2023-01-01" data-end="2026-10-01">2023â€“2026 AI Megacap Rally</button>
               </div>
             </div>
           </div>
@@ -631,7 +631,7 @@
               <i class="fa-solid fa-calendar-check panel-icon text-emerald"></i>
               <div>
                 <h3 class="panel-title">Annual Performance & Crisis Alpha Matrix</h3>
-                <span class="panel-subtitle">Calendar-year audited returns & stress-test comparisons (2010–2026)</span>
+                <span class="panel-subtitle">Calendar-year audited returns & stress-test comparisons (2010â€“2026)</span>
               </div>
             </div>
             <div class="matrix-filter-group">
@@ -721,7 +721,7 @@
               <i class="fa-solid fa-receipt panel-icon"></i>
               <div>
                 <h3 class="panel-title">Trade Intelligence & Execution History</h3>
-                <span class="panel-subtitle">Audited trade execution & round-trip cycle analysis (2010–2026)</span>
+                <span class="panel-subtitle">Audited trade execution & round-trip cycle analysis (2010â€“2026)</span>
               </div>
             </div>
 
@@ -847,14 +847,14 @@
     <footer class="app-footer">
       <div class="footer-left">
         <span>Portfolio State: <strong>portfolio_state.json</strong></span>
-        <span class="footer-sep">•</span>
+        <span class="footer-sep">â€¢</span>
         <span>Daily Log: <strong>daily_summary.csv</strong></span>
-        <span class="footer-sep">•</span>
+        <span class="footer-sep">â€¢</span>
         <span>Trade History: <strong>trade_log.csv</strong></span>
       </div>
       <div class="footer-right">
         <span>Trading Schedule: <strong>Daily at 1:50 PM MT (3:50 PM EST)</strong></span>
-        <span class="footer-sep">•</span>
+        <span class="footer-sep">â€¢</span>
         <span class="text-cyan">Auto-refreshes every 10 minutes</span>
       </div>
     </footer>
@@ -871,10 +871,10 @@
           </div>
           <div>
             <div class="sandbox-title-row">
-              <h2 class="sandbox-title">Quant Lab — Strategy Sandbox & Custom Backtest Engine</h2>
+              <h2 class="sandbox-title">Quant Lab â€” Strategy Sandbox & Custom Backtest Engine</h2>
               <span class="sandbox-chip font-mono">CLIENT-SIDE INSTANT ENGINE</span>
             </div>
-            <p class="sandbox-subtitle">Simulate custom systematic rules across 4,185 daily sessions (2010–2026) in real time.</p>
+            <p class="sandbox-subtitle">Simulate custom systematic rules across 4,185 daily sessions (2010â€“2026) in real time.</p>
           </div>
         </div>
         <button class="sandbox-close-btn" id="btnCloseSandbox" title="Close Quant Lab"><i class="fa-solid fa-xmark"></i></button>
@@ -918,7 +918,7 @@
               <div class="sandbox-select-wrap">
                 <select id="sbDcaFreq">
                   <option value="none">None (Lump Sum Only)</option>
-                  <option value="biweekly" selected>Bi-Weekly (Paycheck — 14d)</option>
+                  <option value="biweekly" selected>Bi-Weekly (Paycheck â€” 14d)</option>
                   <option value="monthly">Monthly (1st of Month)</option>
                   <option value="quarterly">Quarterly (90 Days)</option>
                 </select>
@@ -982,9 +982,9 @@
             </div>
             <div class="sandbox-select-wrap">
               <select id="sbBufferType">
-                <option value="atr_1_0" selected>Symmetric ATR (1.0× ATR Buffer — Benchmark)</option>
-                <option value="atr_0_5">Tight ATR (0.5× ATR Buffer)</option>
-                <option value="atr_1_5">Loose ATR (1.5× ATR Buffer)</option>
+                <option value="atr_1_0" selected>Symmetric ATR (1.0Ã— ATR Buffer â€” Benchmark)</option>
+                <option value="atr_0_5">Tight ATR (0.5Ã— ATR Buffer)</option>
+                <option value="atr_1_5">Loose ATR (1.5Ã— ATR Buffer)</option>
                 <option value="fixed_1_0">Fixed Percentage (1.0% Buffer)</option>
                 <option value="fixed_2_0">Fixed Percentage (2.0% Buffer)</option>
                 <option value="fixed_0_0">Zero Buffer (Immediate SMA Cross)</option>
@@ -1018,7 +1018,7 @@
             </div>
             <div class="sandbox-select-wrap">
               <select id="sbBearAsset">
-                <option value="cash" selected>100% Cash / Treasury Yield (4.5% APR — Benchmark)</option>
+                <option value="cash" selected>100% Cash / Treasury Yield (4.5% APR â€” Benchmark)</option>
                 <option value="sqqq_50">50% Cash / 50% SQQQ Inverse Hedge</option>
                 <option value="sqqq_100">100% SQQQ Inverse Hedge (High Volatility)</option>
               </select>
@@ -1074,8 +1074,8 @@
 
             <div class="sb-metric-box" data-help="sb_multiplier" style="cursor: pointer;">
               <div class="sb-metric-label">WEALTH MULTIPLIER (ROI) <i class="fa-regular fa-circle-question qm-help-icon"></i></div>
-              <div class="sb-metric-val font-mono text-emerald" id="sbResMultiplier">36.2×</div>
-              <div class="sb-metric-bench" id="sbBenchMultiplier">Benchmark: 36.2×</div>
+              <div class="sb-metric-val font-mono text-emerald" id="sbResMultiplier">36.2Ã—</div>
+              <div class="sb-metric-bench" id="sbBenchMultiplier">Benchmark: 36.2Ã—</div>
             </div>
 
             <div class="sb-metric-box" data-help="win_rate" style="cursor: pointer;">
@@ -1134,6 +1134,6 @@
   <!-- Toast Notification Hub -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="app.js?v=3.3.0"></script>
+  <script src="app.js?v=3.3.1"></script>
 </body>
 </html>

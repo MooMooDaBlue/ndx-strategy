@@ -16,7 +16,7 @@ import webbrowser
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import urllib.parse
 import pandas as pd
@@ -137,7 +137,7 @@ def get_ndx_top20_quotes(force: bool = False) -> dict:
             flat = len(quotes) - advancing - declining
 
             result = {
-                "updated_at": datetime.now().isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
                 "ttl_seconds": 10,
                 "advancing": advancing,
                 "declining": declining,
@@ -152,7 +152,7 @@ def get_ndx_top20_quotes(force: bool = False) -> dict:
             if _quotes_cache["data"]:
                 return _quotes_cache["data"]
             return {
-                "updated_at": datetime.now().isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
                 "ttl_seconds": 10,
                 "advancing": 0,
                 "declining": 0,

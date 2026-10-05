@@ -36,6 +36,23 @@ setInterval(updateClocks, 1000);
 let quotesCountdown = 10;
 let quotesCountdownTimer = null;
 let previousQuotesMap = {};
+let lastQuotesUpdatedAt = null;
+
+// Only the local Python server (web_dashboard.py) can fetch live quotes.
+// GitHub Pages serves a static snapshot written by the daily workflow.
+function isLiveQuotesHost() {
+  return window.location.port === "5050" || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+}
+
+function formatSnapshotTime(iso) {
+  if (!iso) return "last run";
+  const d = new Date(iso);
+  if (isNaN(d)) return "last run";
+  return d.toLocaleString("en-US", {
+    timeZone: "America/New_York", month: "short", day: "numeric",
+    hour: "numeric", minute: "2-digit"
+  }) + " ET";
+}
 
 document.addEventListener("DOMContentLoaded", () => {
   parseUrlParams();
@@ -623,6 +640,9 @@ function startQuotesPolling() {
   // Fire initial fetch after short delay if data not yet populated
   setTimeout(() => fetchHeatmapQuotes(false), 800);
 
+  // Hosted (GitHub Pages): snapshot only changes when the daily workflow runs — no polling
+  if (!isLiveQuotesHost()) return;
+
   quotesCountdownTimer = setInterval(() => {
     const session = getMarketSession();
     if (!session.isTrading) {
@@ -645,6 +665,13 @@ function updateQuotesCountdownUI() {
   const pBar = document.getElementById("heatmapProgressBar");
   const pill = document.getElementById("heatmapRefreshPill");
   const session = getMarketSession();
+
+  if (!isLiveQuotesHost()) {
+    if (cdText) cdText.textContent = `As of ${formatSnapshotTime(lastQuotesUpdatedAt)}`;
+    if (pBar) pBar.style.width = "0%";
+    if (pill) pill.title = "Snapshot from the last daily run (not live). Live quotes are only available on the local dashboard.";
+    return;
+  }
 
   if (!session.isTrading) {
     if (cdText) cdText.textContent = "Closed";
@@ -682,7 +709,9 @@ async function fetchHeatmapQuotes(isPolling = false) {
     const data = await res.json();
     const heatmapPayload = data.ndx_heatmap || (data.quotes ? data : null);
     if (heatmapPayload && heatmapPayload.quotes) {
+      lastQuotesUpdatedAt = heatmapPayload.updated_at || null;
       renderNdxHeatmap(heatmapPayload);
+      updateQuotesCountdownUI();
     }
   } catch (err) {
     console.warn("Failed to poll live NDX heatmap quotes:", err);
@@ -803,7 +832,9 @@ function renderNdxHeatmap(heatmapData) {
 function renderUI(data) {
   // 0. Render Live Top 20 NDX Heatmap if present in payload
   if (data.ndx_heatmap) {
+    lastQuotesUpdatedAt = data.ndx_heatmap.updated_at || lastQuotesUpdatedAt;
     renderNdxHeatmap(data.ndx_heatmap);
+    updateQuotesCountdownUI();
   }
   const modelObj = (data.models && data.models[currentModel]) ? data.models[currentModel] : data;
   const p = modelObj.portfolio || data.portfolio;
@@ -843,7 +874,7 @@ function renderUI(data) {
     banner.className = "regime-hero-banner regime-bull";
     badge.className = "regime-badge";
     badgeText.textContent = "100% TQQQ (BULL TREND)";
-    headline.textContent = "Full Bull Regime Confirmed";
+    headline.textContent = "Full Bull: Uptrend Intact, No Trim";
     icon.className = "fa-solid fa-bolt-lightning";
   } else if (p.position === "TQQQ_50") {
     banner.className = "regime-hero-banner regime-bull";
@@ -870,7 +901,8 @@ function renderUI(data) {
     headline.textContent = "Capital Preservation Mode";
     icon.className = "fa-solid fa-piggy-bank";
   }
-  reason.textContent = p.last_signal || "System executing systematic rules.";
+  // Prefer the latest daily row's reason (re-evaluated every run) over the portfolio's stored signal
+  reason.textContent = latestDaily.reason || p.last_signal || "System executing systematic rules.";
 
   // Scaled values
   const scaledTotal = p.total_value * scaleFactor;
@@ -960,17 +992,15 @@ function renderUI(data) {
     }
   }
   if (rsiBadgeEl) {
+    // Zones mirror the actual strategy rules: 75 = overbought trim, 30 = oversold (no short chase)
     if (curRsi >= 75) {
-      rsiBadgeEl.textContent = "OVERBOUGHT";
+      rsiBadgeEl.textContent = "OVERBOUGHT · TRIM";
       rsiBadgeEl.className = "ht-badge badge-bear";
-    } else if (curRsi <= 30) {
+    } else if (curRsi < 30) {
       rsiBadgeEl.textContent = "OVERSOLD";
       rsiBadgeEl.className = "ht-badge badge-neutral";
-    } else if (curRsi >= 60) {
-      rsiBadgeEl.textContent = "BULL MOMENTUM";
-      rsiBadgeEl.className = "ht-badge badge-bull";
     } else {
-      rsiBadgeEl.textContent = "NEUTRAL";
+      rsiBadgeEl.textContent = "BELOW 75 TRIM LINE";
       rsiBadgeEl.className = "ht-badge badge-neutral";
     }
   }
