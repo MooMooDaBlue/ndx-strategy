@@ -1,10 +1,12 @@
 import os
 import sys
+import logging
 from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import trading_strategy as ts
 
+ts.log.setLevel(logging.CRITICAL)
 CFG = ts.CONFIG
 
 
