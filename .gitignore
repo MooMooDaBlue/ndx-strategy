@@ -21,3 +21,6 @@ ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 .DS_Store
+
+# Web volatile data
+web/data.json

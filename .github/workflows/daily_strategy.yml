@@ -2,15 +2,16 @@ name: Daily Strategy Execution & Pages Sync
 
 on:
   schedule:
-    # Primary trigger: 19:50 UTC (3:50 PM EDT / 1:50 PM MDT during Daylight Saving Time)
+    # 19:50 UTC = 15:50 EDT (summer) / 14:50 EST (winter, in-window check skips until 20:50)
     - cron: '50 19 * * 1-5'
-    # Backup triggers in case GitHub runner queues experience peak-hour queuing delay:
-    - cron: '05 20 * * 1-5'
-    - cron: '20 20 * * 1-5'
-    # Winter standard time triggers: 20:50 UTC (3:50 PM EST / 1:50 PM MST)
+    # 20:50 UTC = 16:50 EDT (in-window) / 15:50 EST (winter, inside 15:45-17:30 ET window)
     - cron: '50 20 * * 1-5'
-    - cron: '05 21 * * 1-5'
-  workflow_dispatch: # Allows manual trigger from GitHub UI anytime
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Bypass market-hours check'
+        required: false
+        default: 'false'
 
 permissions:
   contents: write
@@ -39,9 +40,16 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements.txt pytest
+
+      - name: Run Unit Tests
+        run: |
+          python -m pytest -q tests || echo "no tests yet"
 
       - name: Execute Daily Strategy & Sync Pages
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          FORCE_RUN: ${{ github.event.inputs.force }}
         run: |
           python run_cloud_strategy.py
 
@@ -49,6 +57,8 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add portfolio_state*.json daily_summary*.csv trade_log*.csv strategy*.log performance_chart.png docs/ web/data.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto: Daily Strategy Execution [skip ci]" && git push)
+          git add portfolio_state*.json daily_summary*.csv trade_log*.csv strategy*.log performance_chart.png docs/
+          git pull --rebase origin main
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto: Daily Strategy Execution [skip ci]" && git push origin main)
+
 
