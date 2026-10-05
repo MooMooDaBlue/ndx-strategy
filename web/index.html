@@ -86,35 +86,33 @@
       </div>
     </header>
 
-    <!-- Real-Time TradingView Market Ticker Tape (Mag 7, S&P 500, QQQ, TQQQ, SQQQ) -->
-    <section class="market-ticker-section">
-      <!-- TradingView Widget BEGIN -->
-      <div class="tradingview-widget-container">
-        <div class="tradingview-widget-container__widget"></div>
-        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
-        {
-          "symbols": [
-            { "proName": "NASDAQ:QQQ", "title": "QQQ" },
-            { "proName": "AMEX:SPY", "title": "S&P 500 (SPY)" },
-            { "proName": "NASDAQ:TQQQ", "title": "TQQQ (3x Bull)" },
-            { "proName": "NASDAQ:SQQQ", "title": "SQQQ (3x Bear)" },
-            { "proName": "NASDAQ:NVDA", "title": "NVDA" },
-            { "proName": "NASDAQ:AAPL", "title": "AAPL" },
-            { "proName": "NASDAQ:MSFT", "title": "MSFT" },
-            { "proName": "NASDAQ:AMZN", "title": "AMZN" },
-            { "proName": "NASDAQ:GOOGL", "title": "GOOGL" },
-            { "proName": "NASDAQ:META", "title": "META" },
-            { "proName": "NASDAQ:TSLA", "title": "TSLA" }
-          ],
-          "showSymbolLogo": true,
-          "isTransparent": true,
-          "displayMode": "adaptive",
-          "colorTheme": "dark",
-          "locale": "en"
-        }
-        </script>
+    <!-- Real-Time NDX Top 20 Holdings Heatmap & Extended-Hours Matrix -->
+    <section class="ndx-heatmap-section" id="ndxHeatmapSection">
+      <div class="heatmap-header">
+        <div class="heatmap-title-group">
+          <div class="heatmap-badge">
+            <i class="fa-solid fa-chart-pie text-cyan"></i>
+            <span>NDX TOP 20 WEIGHTS</span>
+          </div>
+          <span class="heatmap-subtitle">Real-Time Market Breadth &amp; Extended-Hours Movement</span>
+        </div>
+        <div class="heatmap-telemetry-group">
+          <div class="heatmap-breadth-chip" id="heatmapBreadthChip" title="Advancing vs Declining among NDX Top 20 Holdings">
+            <span class="breadth-beacon-dot" id="breadthBeaconDot"></span>
+            <span id="heatmapBreadthText">Calculating Breadth...</span>
+          </div>
+          <div class="heatmap-refresh-pill" id="heatmapRefreshPill" title="Live 10-Second Quote Poller">
+            <i class="fa-solid fa-arrows-rotate" id="heatmapRefreshIcon"></i>
+            <span id="heatmapCountdownText">10s</span>
+            <div class="heatmap-progress-track">
+              <div class="heatmap-progress-bar" id="heatmapProgressBar"></div>
+            </div>
+          </div>
+        </div>
       </div>
-      <!-- TradingView Widget END -->
+      <div class="heatmap-grid" id="heatmapGrid">
+        <!-- Rendered dynamically by app.js: 20 responsive cards with primary price and smaller extended-hours movement -->
+      </div>
     </section>
 
     <!-- Regime / Signal Banner & 5-State Strategy Command Cockpit -->

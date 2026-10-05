@@ -14,11 +14,14 @@ import json
 import socket
 import webbrowser
 import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, date
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import urllib.parse
 import pandas as pd
 import holidays
+import yfinance as yf
 
 # Fix Windows console encoding for special characters
 if sys.stdout.encoding != "utf-8" and hasattr(sys.stdout, "reconfigure"):
@@ -30,6 +33,133 @@ PORT = 5050
 
 sys.path.insert(0, BASE_DIR)
 import trading_strategy as ts
+
+# ─────────────────────────────────────────────
+# TOP 20 NDX CONSTITUENTS & LIVE QUOTE ENGINE
+# ─────────────────────────────────────────────
+TOP_20_NDX = [
+    {"symbol": "NVDA", "name": "NVIDIA", "weight": 8.8},
+    {"symbol": "AAPL", "name": "Apple", "weight": 8.4},
+    {"symbol": "MSFT", "name": "Microsoft", "weight": 7.9},
+    {"symbol": "AMZN", "name": "Amazon", "weight": 5.5},
+    {"symbol": "GOOGL", "name": "Alphabet", "weight": 5.2},
+    {"symbol": "META", "name": "Meta", "weight": 5.1},
+    {"symbol": "TSLA", "name": "Tesla", "weight": 3.2},
+    {"symbol": "AVGO", "name": "Broadcom", "weight": 4.8},
+    {"symbol": "COST", "name": "Costco", "weight": 2.4},
+    {"symbol": "NFLX", "name": "Netflix", "weight": 2.1},
+    {"symbol": "AMD", "name": "AMD", "weight": 1.9},
+    {"symbol": "ASML", "name": "ASML", "weight": 1.7},
+    {"symbol": "PEP", "name": "PepsiCo", "weight": 1.3},
+    {"symbol": "LIN", "name": "Linde", "weight": 1.3},
+    {"symbol": "CSCO", "name": "Cisco", "weight": 1.5},
+    {"symbol": "TMUS", "name": "T-Mobile", "weight": 1.4},
+    {"symbol": "QCOM", "name": "Qualcomm", "weight": 1.5},
+    {"symbol": "ADBE", "name": "Adobe", "weight": 1.3},
+    {"symbol": "TXN", "name": "Texas Inst", "weight": 1.2},
+    {"symbol": "AMAT", "name": "Applied Mat", "weight": 1.2},
+]
+
+_quotes_cache = {
+    "timestamp": 0.0,
+    "data": None,
+    "lock": threading.Lock()
+}
+
+def get_ndx_top20_quotes(force: bool = False) -> dict:
+    """Fetch real-time regular and extended-hours quotes for Top 20 NDX constituents with 10s TTL."""
+    now = time.time()
+    if not force and _quotes_cache["data"] and (now - _quotes_cache["timestamp"] < 10.0):
+        return _quotes_cache["data"]
+
+    with _quotes_cache["lock"]:
+        if not force and _quotes_cache["data"] and (time.time() - _quotes_cache["timestamp"] < 10.0):
+            return _quotes_cache["data"]
+
+        def _fetch_sym(item):
+            sym = item["symbol"]
+            name = item["name"]
+            weight = item["weight"]
+            try:
+                inf = yf.Ticker(sym).info
+                reg_p = inf.get("regularMarketPrice") or inf.get("currentPrice") or 0.0
+                reg_chg = inf.get("regularMarketChangePercent") or 0.0
+                post_p = inf.get("postMarketPrice")
+                post_pct = inf.get("postMarketChangePercent")
+                pre_p = inf.get("preMarketPrice")
+                pre_pct = inf.get("preMarketChangePercent")
+
+                ext_p = None
+                ext_pct = None
+                ext_type = None
+
+                if post_p and post_p > 0:
+                    ext_p = post_p
+                    ext_pct = post_pct if post_pct is not None else ((post_p - reg_p) / reg_p * 100 if reg_p > 0 else 0.0)
+                    ext_type = "AH"
+                elif pre_p and pre_p > 0:
+                    ext_p = pre_p
+                    ext_pct = pre_pct if pre_pct is not None else ((pre_p - reg_p) / reg_p * 100 if reg_p > 0 else 0.0)
+                    ext_type = "PRE"
+
+                return {
+                    "symbol": sym,
+                    "name": name,
+                    "weight": weight,
+                    "price": round(float(reg_p), 2),
+                    "change_pct": round(float(reg_chg), 2),
+                    "ext_price": round(float(ext_p), 2) if ext_p else None,
+                    "ext_change_pct": round(float(ext_pct), 2) if ext_pct is not None else None,
+                    "ext_type": ext_type
+                }
+            except Exception:
+                if _quotes_cache["data"] and "quotes" in _quotes_cache["data"]:
+                    for prev in _quotes_cache["data"]["quotes"]:
+                        if prev.get("symbol") == sym:
+                            return prev
+                return {
+                    "symbol": sym,
+                    "name": name,
+                    "weight": weight,
+                    "price": 0.0,
+                    "change_pct": 0.0,
+                    "ext_price": None,
+                    "ext_change_pct": None,
+                    "ext_type": None
+                }
+
+        try:
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                quotes = list(executor.map(_fetch_sym, TOP_20_NDX))
+
+            advancing = sum(1 for q in quotes if (q.get("change_pct") or 0) > 0)
+            declining = sum(1 for q in quotes if (q.get("change_pct") or 0) < 0)
+            flat = len(quotes) - advancing - declining
+
+            result = {
+                "updated_at": datetime.now().isoformat(),
+                "ttl_seconds": 10,
+                "advancing": advancing,
+                "declining": declining,
+                "flat": flat,
+                "advancing_pct": round(advancing / len(quotes) * 100, 1) if quotes else 0,
+                "quotes": quotes
+            }
+            _quotes_cache["timestamp"] = time.time()
+            _quotes_cache["data"] = result
+            return result
+        except Exception:
+            if _quotes_cache["data"]:
+                return _quotes_cache["data"]
+            return {
+                "updated_at": datetime.now().isoformat(),
+                "ttl_seconds": 10,
+                "advancing": 0,
+                "declining": 0,
+                "flat": 20,
+                "advancing_pct": 0,
+                "quotes": []
+            }
 
 
 # ─────────────────────────────────────────────
@@ -241,6 +371,7 @@ def get_dashboard_data() -> dict:
         "recent_logs": recent_logs,
         "stats": stats_sym,
         "models": models,
+        "ndx_heatmap": get_ndx_top20_quotes(),
         "scheduler": {
             "active": False,
             "is_active_session": is_trading_day(),
@@ -272,6 +403,23 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == "/api/quotes":
+            try:
+                quotes_data = get_ndx_top20_quotes()
+                payload = json.dumps(quotes_data, separators=(",", ":")).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
+            return
+
         if parsed.path == "/api/data":
             try:
                 data = get_dashboard_data()
@@ -292,8 +440,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def log_message(self, format, *args):
-        # Suppress routine GET logging for static assets to keep console clean
-        if len(args) > 0 and "GET /api/data" not in str(args[0]):
+        # Suppress routine GET logging for static assets and quotes to keep console clean
+        if len(args) > 0 and not any(k in str(args[0]) for k in ["GET /api/data"]):
             return
         super().log_message(format, *args)
 

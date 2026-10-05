@@ -98,3 +98,16 @@ def test_original_model_exits_below_sma50():
 def test_bear_regime_enters_sqqq_in_zone():
     d = ts.decide_signal(80, 100, 90, 45, 2, False, "CASH", False, 50, CFG)
     assert d["signal"] == "SQQQ"
+
+
+def test_ndx_top20_quotes_structure():
+    import web_dashboard as wd
+    q = wd.get_ndx_top20_quotes()
+    assert "quotes" in q
+    assert len(q["quotes"]) == 20
+    assert "advancing" in q
+    assert "declining" in q
+    first = q["quotes"][0]
+    assert "symbol" in first and "weight" in first and "price" in first
+    assert "ext_price" in first and "ext_change_pct" in first
+

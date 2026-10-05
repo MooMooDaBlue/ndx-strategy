@@ -32,12 +32,18 @@ let sbPreviewChartInstance = null;
 // Real-time Clock interval
 setInterval(updateClocks, 1000);
 
+// NDX Top 20 Quotes Live Polling State
+let quotesCountdown = 10;
+let quotesCountdownTimer = null;
+let previousQuotesMap = {};
+
 document.addEventListener("DOMContentLoaded", () => {
   parseUrlParams();
   initEventListeners();
   initEducationalTooltips();
   fetchDashboardData();
   startAutoRefresh();
+  startQuotesPolling();
 });
 
 /* ==========================================================================
@@ -547,6 +553,17 @@ function initEventListeners() {
       });
     });
   }
+
+  // Heatmap Refresh Pill Manual Click
+  const heatmapPill = document.getElementById("heatmapRefreshPill");
+  if (heatmapPill) {
+    heatmapPill.style.cursor = "pointer";
+    heatmapPill.addEventListener("click", () => {
+      quotesCountdown = 10;
+      updateQuotesCountdownUI();
+      fetchHeatmapQuotes(true);
+    });
+  }
 }
 
 function startAutoRefresh() {
@@ -596,9 +613,169 @@ async function fetchDashboardData(isBackground = false) {
 }
 
 /* ==========================================================================
+   NDX TOP 20 HOLDINGS HEATMAP & 10-SECOND LIVE QUOTE POLLER
+   ========================================================================== */
+function startQuotesPolling() {
+  if (quotesCountdownTimer) clearInterval(quotesCountdownTimer);
+  quotesCountdown = 10;
+  updateQuotesCountdownUI();
+
+  // Fire initial fetch after short delay if data not yet populated
+  setTimeout(() => fetchHeatmapQuotes(false), 800);
+
+  quotesCountdownTimer = setInterval(() => {
+    quotesCountdown--;
+    if (quotesCountdown <= 0) {
+      quotesCountdown = 10;
+      fetchHeatmapQuotes(true);
+    }
+    updateQuotesCountdownUI();
+  }, 1000);
+}
+
+function updateQuotesCountdownUI() {
+  const cdText = document.getElementById("heatmapCountdownText");
+  const pBar = document.getElementById("heatmapProgressBar");
+  if (cdText) cdText.textContent = `${quotesCountdown}s`;
+  if (pBar) {
+    const pct = Math.max(0, Math.min(100, (quotesCountdown / 10) * 100));
+    pBar.style.width = `${pct}%`;
+  }
+}
+
+async function fetchHeatmapQuotes(isPolling = false) {
+  const icon = document.getElementById("heatmapRefreshIcon");
+  if (icon) icon.classList.add("fa-spin");
+
+  try {
+    const isLocal = window.location.port === "5050" || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    let endpoint = isLocal ? "/api/quotes" : "./data.json";
+    let res = await fetch(endpoint + "?_t=" + Date.now());
+    if (!res.ok && isLocal) {
+      endpoint = "./data.json";
+      res = await fetch(endpoint + "?_t=" + Date.now());
+    }
+    const data = await res.json();
+    const heatmapPayload = data.ndx_heatmap || (data.quotes ? data : null);
+    if (heatmapPayload && heatmapPayload.quotes) {
+      renderNdxHeatmap(heatmapPayload);
+    }
+  } catch (err) {
+    console.warn("Failed to poll live NDX heatmap quotes:", err);
+  } finally {
+    if (icon) {
+      setTimeout(() => icon.classList.remove("fa-spin"), 500);
+    }
+  }
+}
+
+function renderNdxHeatmap(heatmapData) {
+  if (!heatmapData || !Array.isArray(heatmapData.quotes)) return;
+
+  // 1. Update Market Breadth Telemetry Chip
+  const breadthText = document.getElementById("heatmapBreadthText");
+  const beacon = document.getElementById("breadthBeaconDot");
+  if (breadthText) {
+    const advancing = heatmapData.advancing ?? 0;
+    const declining = heatmapData.declining ?? 0;
+    const total = heatmapData.quotes.length || 20;
+    const pct = heatmapData.advancing_pct ?? Math.round((advancing / total) * 100);
+    breadthText.textContent = `${advancing} Bull · ${declining} Bear (${pct}% Advancing)`;
+  }
+  if (beacon) {
+    if ((heatmapData.advancing ?? 0) >= (heatmapData.declining ?? 0)) {
+      beacon.style.background = "#10b981";
+      beacon.style.boxShadow = "0 0 8px #10b981";
+    } else {
+      beacon.style.background = "#ef4444";
+      beacon.style.boxShadow = "0 0 8px #ef4444";
+    }
+  }
+
+  // 2. Render / Update 20 Responsive Chips
+  const grid = document.getElementById("heatmapGrid");
+  if (!grid) return;
+
+  const quotes = heatmapData.quotes;
+
+  quotes.forEach((q, idx) => {
+    let chipEl = document.getElementById(`chip-${q.symbol}`);
+    const isNew = !chipEl;
+    if (isNew) {
+      chipEl = document.createElement("div");
+      chipEl.id = `chip-${q.symbol}`;
+      grid.appendChild(chipEl);
+    }
+
+    // Determine Sentiment Class for Background Heatmap Gradient
+    const chg = typeof q.change_pct === "number" ? q.change_pct : 0.0;
+    let sentimentClass = "sentiment-flat";
+    if (chg >= 2.0) sentimentClass = "sentiment-super-bull";
+    else if (chg > 0.0) sentimentClass = "sentiment-bull";
+    else if (chg <= -2.0) sentimentClass = "sentiment-super-bear";
+    else if (chg < 0.0) sentimentClass = "sentiment-bear";
+
+    chipEl.className = `heatmap-chip ${sentimentClass}`;
+
+    // Price Change Direction & Formatting
+    const priceStr = q.price > 0 ? `$${q.price.toFixed(2)}` : "--";
+    const chgSign = chg > 0 ? "+" : "";
+    const chgPctStr = `${chgSign}${chg.toFixed(2)}%`;
+    const pctClass = chg > 0 ? "positive" : (chg < 0 ? "negative" : "neutral");
+
+    // Extended-Hours / After-Hours Sub-Row Formatting
+    let extHtml = "";
+    if (q.ext_price && q.ext_price > 0) {
+      const extChg = typeof q.ext_change_pct === "number" ? q.ext_change_pct : 0.0;
+      const extSign = extChg > 0 ? "+" : "";
+      const extClass = extChg > 0 ? "positive" : (extChg < 0 ? "negative" : "neutral");
+      const iconTag = q.ext_type === "PRE" 
+        ? '<i class="fa-solid fa-sun" style="color:#f59e0b;"></i> PRE' 
+        : '<i class="fa-regular fa-moon" style="color:#38bdf8;"></i> AH';
+      extHtml = `
+        <span class="ext-label">${iconTag} $${q.ext_price.toFixed(2)}</span>
+        <span class="ext-pct ${extClass}">${extSign}${extChg.toFixed(2)}%</span>
+      `;
+    } else {
+      extHtml = `
+        <span class="ext-label"><i class="fa-regular fa-clock"></i> Mkt Closed</span>
+        <span class="ext-pct neutral">0.00%</span>
+      `;
+    }
+
+    chipEl.innerHTML = `
+      <div class="chip-top">
+        <span class="chip-symbol">${q.symbol}</span>
+        <span class="chip-weight">#${idx + 1} · ${q.weight}%</span>
+      </div>
+      <div class="chip-mid">
+        <span class="chip-price">${priceStr}</span>
+        <span class="chip-pct ${pctClass}">${chgPctStr}</span>
+      </div>
+      <div class="chip-sub">
+        ${extHtml}
+      </div>
+    `;
+
+    // Micro-flash on price change detection
+    const prev = previousQuotesMap[q.symbol];
+    if (prev && prev.price && q.price && prev.price !== q.price) {
+      const flashClass = q.price > prev.price ? "chip-flash-green" : "chip-flash-red";
+      chipEl.classList.add(flashClass);
+      setTimeout(() => chipEl.classList.remove(flashClass), 700);
+    }
+    previousQuotesMap[q.symbol] = { price: q.price, ext_price: q.ext_price };
+  });
+}
+
+/* ==========================================================================
    UI RENDERING MASTER
    ========================================================================== */
 function renderUI(data) {
+  // 0. Render Live Top 20 NDX Heatmap if present in payload
+  if (data.ndx_heatmap) {
+    renderNdxHeatmap(data.ndx_heatmap);
+  }
   const modelObj = (data.models && data.models[currentModel]) ? data.models[currentModel] : data;
   const p = modelObj.portfolio || data.portfolio;
   const stats = modelObj.stats || data.stats;
