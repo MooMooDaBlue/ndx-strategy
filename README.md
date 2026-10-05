@@ -24,12 +24,12 @@ The live interactive terminal is hosted continuously on GitHub Pages:
 
 👉 **[https://MooMooDaBlue.github.io/ndx-strategy/](https://MooMooDaBlue.github.io/ndx-strategy/)**
 
-- **Dual Strategy Ruleset Benchmarking**: Toggle between **Symmetric 1.0× ATR** (Macro Defensive Hysteresis, +4,361% 16Y return) and **Original Agile Model** (Fast SMA50 Stop & 1% Confirmation Buffer, +2,976% 16Y return), or overlay both models side-by-side on the chart!
+- **Dual Strategy Ruleset Benchmarking**: Toggle between **Symmetric 1.0× ATR** (Macro Defensive Hysteresis, +3,521% 16Y return) and **Original Agile Model** (Fast SMA50 Stop & 1% Confirmation Buffer, +2,073% 16Y return), or overlay both models side-by-side on the chart!
 - **Interactive Capital Simulator**: Test any initial capital amount ($5K, $10K, $25K, $50K, $100K presets or any custom figure) to see scaled returns, drawdowns, and compounded terminal value.
 - **Multi-Era Macro Stress-Testing**: Instant 1-click toggles across key historical regimes: **1M**, **6M**, **1Y**, **5Y**, **2022 Bear Market** (-80% TQQQ crash avoidance), **2020 COVID Crash**, and **16Y Full Inception (2010–2026)**.
 - **Real-Time Market Tracking**: Live NDX status, countdown timer to daily run, and key indicator gauges (SMA50, SMA250, RSI-14).
 - **Interactive Multi-Chart Studio**: Dynamic Chart.js visualizations for Strategy vs Buy-and-Hold benchmarks, NDX vs SMA trend bands, and RSI momentum zones.
-- **Searchable Execution Ledger**: Audited table of all 460+ historical trades with action filter (BUY/SELL/TRIM) and year filter (2010–2026).
+- **Searchable Execution Ledger**: Audited table of all 400+ historical trades (402 executions with multi-leg BUY/SELL/TRIM) and year filter (2010–2026).
 - **Streaming Execution Terminal**: Monospaced terminal display streaming real-time strategy logs.
 
 ---
@@ -102,7 +102,7 @@ run_dashboard.bat
 # Or via Command Line:
 python web_dashboard.py
 ```
-*(Runs the local web server at `http://localhost:5050` with an integrated background scheduler).*
+*(Runs the local view-only web server at `http://127.0.0.1:5050`).*
 
 ---
 
@@ -111,6 +111,6 @@ python web_dashboard.py
 > **READ CAREFULLY BEFORE ACCESSING, USING, OR FORKING THIS REPOSITORY:**
 >
 > 1. **NOT FINANCIAL, LEGAL, OR INVESTMENT ADVICE**: None of the content, code, algorithms, data, backtests, simulations, charts, trade logs, or signals presented in this repository or associated web dashboards constitute financial, investment, legal, tax, or trading advice. It is strictly not an offer, recommendation, or solicitation to buy or sell any security, ETF, derivative, or digital asset.
-> 2. **EDUCATIONAL & PAPER-TRADING BENCHMARK ONLY**: This software is an open-source paper-trading framework and quantitative simulation designed purely to benchmark algorithmic models against buy-and-hold strategies. Simulated paper trades do not represent actual trading and have fundamental limitations (e.g. slippage, liquidity constraints, transaction fees, execution delays, margin/borrow rates, and psychological factors are not modeled).
+> 2. **EDUCATIONAL & PAPER-TRADING BENCHMARK ONLY**: This software is an open-source paper-trading framework and quantitative simulation designed purely to benchmark algorithmic models against buy-and-hold strategies. Simulated paper trades do not represent actual trading and have fundamental limitations (e.g. slippage, liquidity constraints, transaction fees, execution delays, margin/borrow rates, and psychological factors are not modeled). Backtest cash earns historical 13-week T-bill yields; no slippage, fees or taxes modeled.
 > 3. **EXTREME LEVERAGED ETF RISKS**: Triple-leveraged ETFs (**TQQQ** and **SQQQ**) are high-risk financial derivatives designed solely for short-term institutional speculation. Holding leveraged ETFs over extended periods carries extreme compounding risk, volatility decay, and substantial probability of catastrophic loss or total depletion of invested capital.
 > 4. **NO WARRANTY & ZERO LIABILITY**: The software is provided "as is", without warranty of any kind, express or implied. The author, maintainers, and contributors are not licensed financial advisors, broker-dealers, or registered analysts. Under no circumstances shall the author or contributors be liable for any direct, indirect, special, incidental, or consequential damages or financial losses arising from the use of or inability to use this repository. Always consult an accredited financial professional before making real investment decisions.

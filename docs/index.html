@@ -20,7 +20,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   
-  <link rel="stylesheet" href="style.css?v=3.2.0">
+  <link rel="stylesheet" href="style.css?v=3.3.0">
 </head>
 <body>
   <div class="app-container">
@@ -515,7 +515,7 @@
               <span class="model-name">Symmetric 1.0× ATR</span>
               <span class="model-desc">Macro Defensive Hysteresis Buffer</span>
             </div>
-            <span class="model-badge-stat badge-cyan">+4,361% (16Y)</span>
+            <span class="model-badge-stat badge-cyan">+3,521% (16Y)</span>
           </button>
           
           <button class="model-toggle-btn" id="btnModelOriginal" data-model="original_agile">
@@ -524,7 +524,7 @@
               <span class="model-name">Original Agile (1% Buffer)</span>
               <span class="model-desc">Immediate SMA50 Stop & Tight Re-Entry</span>
             </div>
-            <span class="model-badge-stat badge-emerald">+2,976% (16Y)</span>
+            <span class="model-badge-stat badge-emerald">+2,073% (16Y)</span>
           </button>
         </div>
       </div>
@@ -857,7 +857,7 @@
       <div class="footer-right">
         <span>Trading Schedule: <strong>Daily at 1:50 PM MT (3:50 PM EST)</strong></span>
         <span class="footer-sep">•</span>
-        <span class="text-cyan">Auto-refreshes every 10 seconds</span>
+        <span class="text-cyan">Auto-refreshes every 10 minutes</span>
       </div>
     </footer>
 
@@ -1040,8 +1040,8 @@
           <div class="sb-scorecard-grid">
             <div class="sb-metric-box" data-help="sb_final_val" style="cursor: pointer;">
               <div class="sb-metric-label">FINAL PORTFOLIO VALUE <i class="fa-regular fa-circle-question qm-help-icon"></i></div>
-              <div class="sb-metric-val font-mono text-emerald" id="sbResValue">$446,090</div>
-              <div class="sb-metric-bench" id="sbBenchValue">Benchmark: $446,090</div>
+              <div class="sb-metric-val font-mono text-emerald" id="sbResValue">$362,115</div>
+              <div class="sb-metric-bench" id="sbBenchValue">Benchmark: $362,115</div>
             </div>
 
             <div class="sb-metric-box" data-help="sb_invested" style="cursor: pointer;" id="sbInvestedBox">
@@ -1052,18 +1052,18 @@
 
             <div class="sb-metric-box" data-help="sb_net_profit" style="cursor: pointer;">
               <div class="sb-metric-label" id="sbReturnLabel">NET PROFIT & ROIC <i class="fa-regular fa-circle-question qm-help-icon"></i></div>
-              <div class="sb-metric-val font-mono text-emerald" id="sbResReturn">+$436,090 (+4,360.9%)</div>
-              <div class="sb-metric-bench" id="sbBenchReturn">Benchmark: +$436,090</div>
+              <div class="sb-metric-val font-mono text-emerald" id="sbResReturn">+$352,115 (+3,521.2%)</div>
+              <div class="sb-metric-bench" id="sbBenchReturn">Benchmark: +$352,115</div>
             </div>
 
             <div class="sb-metric-box" data-help="sb_irr" style="cursor: pointer;">
               <div class="sb-metric-label" id="sbCagrLabel">ANNUALIZED RETURN (CAGR / IRR) <i class="fa-regular fa-circle-question qm-help-icon"></i></div>
-              <div class="sb-metric-val font-mono text-emerald" id="sbResCagr">+25.7%</div>
-              <div class="sb-metric-bench" id="sbBenchCagr">Benchmark: +25.7%</div>
+              <div class="sb-metric-val font-mono text-emerald" id="sbResCagr">+24.1%</div>
+              <div class="sb-metric-bench" id="sbBenchCagr">Benchmark: +24.1%</div>
             </div>
 
             <div class="sb-metric-box" data-help="sharpe" style="cursor: pointer;">
-              <div class="sb-metric-label">SHARPE RATIO (Rf 4.5%) <i class="fa-regular fa-circle-question qm-help-icon"></i></div>
+              <div class="sb-metric-label">SHARPE RATIO (Rf ^IRX) <i class="fa-regular fa-circle-question qm-help-icon"></i></div>
               <div class="sb-metric-val font-mono text-amber" id="sbResSharpe">0.64</div>
               <div class="sb-metric-bench" id="sbBenchSharpe">Benchmark: 0.64</div>
             </div>
@@ -1076,8 +1076,8 @@
 
             <div class="sb-metric-box" data-help="sb_multiplier" style="cursor: pointer;">
               <div class="sb-metric-label">WEALTH MULTIPLIER (ROI) <i class="fa-regular fa-circle-question qm-help-icon"></i></div>
-              <div class="sb-metric-val font-mono text-emerald" id="sbResMultiplier">44.6×</div>
-              <div class="sb-metric-bench" id="sbBenchMultiplier">Benchmark: 44.6×</div>
+              <div class="sb-metric-val font-mono text-emerald" id="sbResMultiplier">36.2×</div>
+              <div class="sb-metric-bench" id="sbBenchMultiplier">Benchmark: 36.2×</div>
             </div>
 
             <div class="sb-metric-box" data-help="win_rate" style="cursor: pointer;">
@@ -1119,7 +1119,7 @@
     <div class="qtp-body">
       <div class="qtp-section">
         <div class="qtp-section-label"><i class="fa-solid fa-comment-dots text-cyan"></i> IN PLAIN ENGLISH:</div>
-        <p class="qtp-text" id="qtpSummary">Explanation goes here...</p>
+        <p class="qtp-text" id="qtpSummary">Hover a metric to see its explanation.</p>
       </div>
       <div class="qtp-section qtp-analogy-box">
         <div class="qtp-section-label"><i class="fa-solid fa-lightbulb text-amber"></i> REAL-WORLD ANALOGY:</div>
@@ -1136,6 +1136,6 @@
   <!-- Toast Notification Hub -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="app.js?v=3.2.0"></script>
+  <script src="app.js?v=3.3.0"></script>
 </body>
 </html>
