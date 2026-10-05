@@ -553,7 +553,7 @@ function startAutoRefresh() {
   if (autoRefreshTimer) clearInterval(autoRefreshTimer);
   autoRefreshTimer = setInterval(() => {
     fetchDashboardData(true);
-  }, 10000);
+  }, 600000); // 10 minutes (daily model only needs infrequent polling)
 }
 
 async function fetchDashboardData(isBackground = false) {
@@ -2133,12 +2133,15 @@ function computeTradeCycles(trades) {
     const act = (t.action || "").toUpperCase();
 
     if (act === "BUY" && cur === null) {
+      const entryV = parseFloat(t.value) || 0;
       cur = {
         cycleNum: cycles.length + 1,
         entryDate: t.date,
         ticker: t.ticker,
         entryPrice: parseFloat(t.price) || 0,
-        entryVal: parseFloat(t.value) || 0,
+        entryVal: entryV,
+        totalInvested: entryV,
+        totalReturned: 0,
         entryNdx: parseFloat(t.ndx_price) || 0,
         exitDate: null,
         exitPrice: 0,
@@ -2148,12 +2151,21 @@ function computeTradeCycles(trades) {
         durationDays: 0,
         pnlDollar: 0,
         pnlPct: 0,
-        outcome: "OPEN"
+        outcome: "OPEN",
+        trimsCount: 0
       };
+    } else if (act === "BUY" && cur !== null) {
+      // Add-on leg re-investment
+      cur.totalInvested += (parseFloat(t.value) || 0);
+    } else if (act === "TRIM" && cur !== null) {
+      // Partial trim leg cash return
+      cur.totalReturned += (parseFloat(t.value) || 0);
+      cur.trimsCount = (cur.trimsCount || 0) + 1;
     } else if (act === "SELL" && cur !== null) {
       cur.exitDate = t.date;
       cur.exitPrice = parseFloat(t.price) || 0;
       cur.exitVal = parseFloat(t.value) || 0;
+      cur.totalReturned += cur.exitVal;
       cur.exitNdx = parseFloat(t.ndx_price) || 0;
       cur.exitReason = t.reason || "System signal exit";
 
@@ -2161,8 +2173,8 @@ function computeTradeCycles(trades) {
       const d2 = new Date(cur.exitDate);
       cur.durationDays = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24)));
 
-      cur.pnlDollar = cur.exitVal - cur.entryVal;
-      cur.pnlPct = cur.entryVal > 0 ? ((cur.exitVal / cur.entryVal) - 1) * 100 : 0;
+      cur.pnlDollar = cur.totalReturned - cur.totalInvested;
+      cur.pnlPct = cur.totalInvested > 0 ? ((cur.totalReturned / cur.totalInvested) - 1) * 100 : 0;
       cur.outcome = cur.pnlDollar >= 0 ? "WIN" : "LOSS";
 
       cycles.push(cur);
@@ -2209,9 +2221,9 @@ function applyTradeFilters() {
         <option value="ALL">All Actions</option>
         <option value="BUY">BUY (100%)</option>
         <option value="SELL">SELL / CASH</option>
-        <option value="ADJUST">TRIM (30%/50%)</option>
+        <option value="TRIM">TRIM (30%/50%)</option>
       `;
-      actionFilter.value = ["ALL", "BUY", "SELL", "ADJUST"].includes(actionVal) ? actionVal : "ALL";
+      actionFilter.value = ["ALL", "BUY", "SELL", "TRIM"].includes(actionVal) ? actionVal : "ALL";
     }
   }
 
@@ -2351,7 +2363,7 @@ function applyTradeFilters() {
           <th>Ticker</th>
           <th>Shares</th>
           <th>Execution Price</th>
-          <th>Total Value</th>
+          <th>Notional</th>
           <th>NDX Level</th>
           <th>Reason</th>
         </tr>
