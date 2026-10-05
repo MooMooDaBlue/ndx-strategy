@@ -613,7 +613,7 @@ async function fetchDashboardData(isBackground = false) {
 }
 
 /* ==========================================================================
-   NDX TOP 20 HOLDINGS HEATMAP & 10-SECOND LIVE QUOTE POLLER
+   NDX TOP 20 HOLDINGS HEATMAP & LIVE QUOTE POLLER
    ========================================================================== */
 function startQuotesPolling() {
   if (quotesCountdownTimer) clearInterval(quotesCountdownTimer);
@@ -624,6 +624,13 @@ function startQuotesPolling() {
   setTimeout(() => fetchHeatmapQuotes(false), 800);
 
   quotesCountdownTimer = setInterval(() => {
+    const session = getMarketSession();
+    if (!session.isTrading) {
+      // Market is closed (overnight or weekend); keep countdown idle
+      updateQuotesCountdownUI();
+      return;
+    }
+
     quotesCountdown--;
     if (quotesCountdown <= 0) {
       quotesCountdown = 10;
@@ -636,10 +643,27 @@ function startQuotesPolling() {
 function updateQuotesCountdownUI() {
   const cdText = document.getElementById("heatmapCountdownText");
   const pBar = document.getElementById("heatmapProgressBar");
+  const pill = document.getElementById("heatmapRefreshPill");
+  const session = getMarketSession();
+
+  if (!session.isTrading) {
+    if (cdText) cdText.textContent = "Closed";
+    if (pBar) pBar.style.width = "0%";
+    if (pill) {
+      pill.title = session.session === "WEEKEND_CLOSED"
+        ? "Weekend Closed · Extended trading reopens Monday at 4:00 AM ET (Click to refresh)"
+        : "Market Closed (AH ended 8:00 PM ET) · Extended trading reopens at 4:00 AM ET (Click to refresh)";
+    }
+    return;
+  }
+
   if (cdText) cdText.textContent = `${quotesCountdown}s`;
   if (pBar) {
     const pct = Math.max(0, Math.min(100, (quotesCountdown / 10) * 100));
     pBar.style.width = `${pct}%`;
+  }
+  if (pill) {
+    pill.title = "Live Quote Poller (Click to refresh now)";
   }
 }
 
@@ -649,9 +673,9 @@ async function fetchHeatmapQuotes(isPolling = false) {
 
   try {
     const isLocal = window.location.port === "5050" || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-    let endpoint = isLocal ? "/api/quotes" : "./data.json";
+    let endpoint = isLocal ? "/api/quotes" : "./quotes.json";
     let res = await fetch(endpoint + "?_t=" + Date.now());
-    if (!res.ok && isLocal) {
+    if (!res.ok) {
       endpoint = "./data.json";
       res = await fetch(endpoint + "?_t=" + Date.now());
     }
@@ -757,12 +781,17 @@ function renderNdxHeatmap(heatmapData) {
       </div>
     `;
 
-    // Micro-flash on price change detection
+    // Micro-flash on price change detection (regular or extended hours)
     const prev = previousQuotesMap[q.symbol];
-    if (prev && prev.price && q.price && prev.price !== q.price) {
-      const flashClass = q.price > prev.price ? "chip-flash-green" : "chip-flash-red";
-      chipEl.classList.add(flashClass);
-      setTimeout(() => chipEl.classList.remove(flashClass), 700);
+    if (prev) {
+      const regChanged = prev.price && q.price && prev.price !== q.price;
+      const extChanged = prev.ext_price && q.ext_price && prev.ext_price !== q.ext_price;
+      if (regChanged || extChanged) {
+        const isUp = regChanged ? (q.price > prev.price) : (q.ext_price > prev.ext_price);
+        const flashClass = isUp ? "chip-flash-green" : "chip-flash-red";
+        chipEl.classList.add(flashClass);
+        setTimeout(() => chipEl.classList.remove(flashClass), 700);
+      }
     }
     previousQuotesMap[q.symbol] = { price: q.price, ext_price: q.ext_price };
   });
@@ -2700,6 +2729,9 @@ function updateClocks() {
   const elEST = document.getElementById("clockTimeEST");
   if (elEST) elEST.textContent = `${timeEST} EST`;
 
+  // Real-time market status pill update
+  updateMarketStatus();
+
   // Countdown timer to 1:50 PM MT (13:50)
   updateCountdown();
 }
@@ -2735,30 +2767,54 @@ function updateCountdown() {
   timerEl.textContent = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
+function getMarketSession() {
+  const now = new Date();
+  const nyse = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const day = nyse.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+  const hours = nyse.getHours();
+  const mins = nyse.getMinutes();
+  const totalMins = hours * 60 + mins;
+
+  // Weekend (Saturday=6, Sunday=0)
+  if (day === 0 || day === 6) {
+    return { session: "WEEKEND_CLOSED", label: "WEEKEND CLOSED", isTrading: false, isExtended: false };
+  }
+
+  // Pre-Market: 4:00 AM - 9:30 AM ET
+  if (totalMins >= 4 * 60 && totalMins < 9 * 60 + 30) {
+    return { session: "PRE_MARKET", label: "PRE-MARKET", isTrading: true, isExtended: true };
+  }
+
+  // Regular Session: 9:30 AM - 4:00 PM ET
+  if (totalMins >= 9 * 60 + 30 && totalMins < 16 * 60) {
+    return { session: "REGULAR", label: "NYSE OPEN", isTrading: true, isExtended: false };
+  }
+
+  // After-Hours: 4:00 PM - 8:00 PM ET
+  if (totalMins >= 16 * 60 && totalMins < 20 * 60) {
+    return { session: "AFTER_HOURS", label: "AFTER-HOURS", isTrading: true, isExtended: true };
+  }
+
+  // Overnight Closed: 8:00 PM - 4:00 AM ET
+  return { session: "OVERNIGHT_CLOSED", label: "CLOSED (OVERNIGHT)", isTrading: false, isExtended: false };
+}
+
 function updateMarketStatus() {
   const pill = document.getElementById("marketStatusPill");
   const label = document.getElementById("marketStatusText");
   if (!pill || !label) return;
 
-  const now = new Date();
-  const nyse = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const day = nyse.getDay();
-  const hours = nyse.getHours();
-  const mins = nyse.getMinutes();
-  const totalMins = hours * 60 + mins;
+  const session = getMarketSession();
+  label.textContent = session.label;
 
-  const openMins = 9 * 60 + 30; // 9:30 AM
-  const closeMins = 16 * 60;    // 4:00 PM
-
-  if (day === 0 || day === 6) {
-    pill.className = "market-status-pill closed";
-    label.textContent = "WEEKEND CLOSED";
-  } else if (totalMins >= openMins && totalMins < closeMins) {
+  if (session.session === "REGULAR") {
     pill.className = "market-status-pill open";
-    label.textContent = "NYSE OPEN";
-  } else {
+  } else if (session.session === "AFTER_HOURS") {
     pill.className = "market-status-pill after-hours";
-    label.textContent = "AFTER-HOURS";
+  } else if (session.session === "PRE_MARKET") {
+    pill.className = "market-status-pill pre-market";
+  } else {
+    pill.className = "market-status-pill closed";
   }
 }
 

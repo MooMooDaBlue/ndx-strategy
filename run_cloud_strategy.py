@@ -76,6 +76,13 @@ def export_pages_data():
         json.dump(data, f, separators=(",", ":"))
     print(f"  [DATA] Exported static payload: {target}")
 
+    # Also export lightweight quotes.json for fast polling
+    if "ndx_heatmap" in data and data["ndx_heatmap"]:
+        quotes_target = os.path.join(DOCS_DIR, "quotes.json")
+        with open(quotes_target, "w", encoding="utf-8") as f:
+            json.dump(data["ndx_heatmap"], f, separators=(",", ":"))
+        print(f"  [DATA] Exported lightweight quotes: {quotes_target}")
+
     for asset in ["index.html", "style.css", "app.js"]:
         src = os.path.join(WEB_DIR, asset)
         if os.path.exists(src):

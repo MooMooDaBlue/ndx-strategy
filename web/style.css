@@ -196,8 +196,10 @@ body {
   box-shadow: 0 0 8px currentColor;
 }
 
-.market-open .status-dot { background: var(--emerald); color: var(--emerald); }
-.market-closed .status-dot { background: var(--amber); color: var(--amber); }
+.market-status-pill.open .status-dot { background: var(--emerald); color: var(--emerald); box-shadow: 0 0 10px rgba(16, 185, 129, 0.6); }
+.market-status-pill.after-hours .status-dot { background: #38bdf8; color: #38bdf8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.6); }
+.market-status-pill.pre-market .status-dot { background: var(--amber); color: var(--amber); box-shadow: 0 0 10px rgba(245, 158, 11, 0.6); }
+.market-status-pill.closed .status-dot { background: #94a3b8; color: #94a3b8; box-shadow: none; }
 
 .time-widget {
   display: flex;
