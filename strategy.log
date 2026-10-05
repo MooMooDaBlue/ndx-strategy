@@ -102,3 +102,5 @@ Current Status as of 2026-10-01:
 2026-10-02 17:53:34,627 [INFO] Current Prices — TQQQ: $81.01 | SQQQ: $33.12
 2026-10-02 17:53:34,627 [INFO] Portfolio loaded: TQQQ_100 | Value: $459,008.61
 2026-10-02 17:53:34,627 [INFO]   Already ran today (2026-10-02) — skipping duplicate run.
+2026-10-04 21:36:34,790 [INFO]   TRADE SIGNAL: TQQQ_100 → TQQQ_30
+2026-10-04 21:36:34,790 [INFO]   TRIM TQQQ: 140.0000 @ $50.00 = $7,000.00 (target 30%)
