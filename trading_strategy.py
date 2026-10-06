@@ -129,13 +129,49 @@ def fetch_data(ticker: str, period: str = "2y") -> pd.DataFrame:
     return df
 
 
+def _ensure_today_bar(df: pd.DataFrame, ticker: str, today: date) -> pd.DataFrame:
+    """If the latest daily bar is not today's session, attempt to synthesize today's candle via fast_info."""
+    if df.empty:
+        return df
+    last_bar = pd.Timestamp(df.index[-1]).date()
+    if last_bar == today:
+        return df
+
+    try:
+        t = yf.Ticker(ticker)
+        price = getattr(t.fast_info, "last_price", None) or t.fast_info.get("last_price")
+        if not price or price <= 0:
+            h = t.history(period="1d")
+            if not h.empty and pd.Timestamp(h.index[-1]).date() == today:
+                price = float(h["Close"].iloc[-1])
+        if price and price > 0:
+            high_p = getattr(t.fast_info, "day_high", None) or price
+            low_p = getattr(t.fast_info, "day_low", None) or price
+            open_p = getattr(t.fast_info, "open", None) or price
+            log.info(f"  [BACKFILL] Synthesized today's bar for {ticker} via fast_info: ${price:.2f}")
+            new_row = pd.DataFrame({
+                "Open": [open_p], "High": [high_p], "Low": [low_p],
+                "Close": [price], "Volume": [0]
+            }, index=[pd.Timestamp(today)])
+            df = pd.concat([df, new_row])
+    except Exception as err:
+        log.warning(f"  Could not backfill today's bar for {ticker}: {err}")
+
+    return df
+
+
 def fetch_market_data(cfg: dict = None) -> tuple:
-    """Fetch NDX (2y) and TQQQ/SQQQ (5d); fail if the latest bar is not today's ET session."""
+    """Fetch NDX (2y) and TQQQ/SQQQ (1mo); fail if the latest bar is not today's ET session."""
     cfg = cfg or CONFIG
     ndx_df = fetch_data("^NDX", period="2y")
-    tqqq_df = fetch_data(cfg["tqqq_ticker"], period="5d")
-    sqqq_df = fetch_data(cfg["sqqq_ticker"], period="5d")
+    tqqq_df = fetch_data(cfg["tqqq_ticker"], period="1mo")
+    sqqq_df = fetch_data(cfg["sqqq_ticker"], period="1mo")
     today = now_et().date()
+
+    ndx_df = _ensure_today_bar(ndx_df, "^NDX", today)
+    tqqq_df = _ensure_today_bar(tqqq_df, cfg["tqqq_ticker"], today)
+    sqqq_df = _ensure_today_bar(sqqq_df, cfg["sqqq_ticker"], today)
+
     if not os.environ.get("ALLOW_STALE_DATA"):
         for name, df in (("^NDX", ndx_df), ("TQQQ", tqqq_df), ("SQQQ", sqqq_df)):
             last_bar = pd.Timestamp(df.index[-1]).date()

@@ -111,3 +111,21 @@ def test_ndx_top20_quotes_structure():
     assert "symbol" in first and "weight" in first and "price" in first
     assert "ext_price" in first and "ext_change_pct" in first
 
+
+def test_ensure_today_bar_backfills(monkeypatch):
+    import pandas as pd
+    from datetime import date
+    df_stale = pd.DataFrame({"Close": [80.0], "Open": [80.0], "High": [80.0], "Low": [80.0]},
+                            index=[pd.Timestamp("2026-10-02")])
+    target_date = date(2026, 10, 5)
+
+    class MockTicker:
+        def __init__(self, ticker):
+            self.fast_info = type("FI", (), {"last_price": 83.12, "open": 81.0, "day_high": 83.5, "day_low": 80.5})()
+
+    monkeypatch.setattr(ts.yf, "Ticker", MockTicker)
+    df_result = ts._ensure_today_bar(df_stale, "TQQQ", target_date)
+    assert pd.Timestamp(df_result.index[-1]).date() == target_date
+    assert df_result["Close"].iloc[-1] == 83.12
+
+
