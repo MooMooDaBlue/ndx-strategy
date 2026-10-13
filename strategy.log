@@ -169,3 +169,33 @@
 2026-10-09 19:33:45,765 [INFO]   Benchmarks: NDX B&H=+1639.17% | TQQQ B&H=+39513.00%
 2026-10-09 19:33:45,765 [INFO] PORTFOLIO [symmetric_atr]: TQQQ_100 | $363,321.89 | cash $0.00 | P&L +3533.22%
 2026-10-09 19:33:46,234 [ERROR] HTTP Error 401: {"finance":{"result":null,"error":{"code":"Unauthorized","description":"Invalid Crumb"}}}
+2026-10-12 21:38:33,800 [INFO] Fetching data for ^NDX...
+2026-10-12 21:38:34,261 [INFO]   ^NDX: 500 bars fetched, latest close: 30664.70
+2026-10-12 21:38:34,261 [INFO] Fetching data for TQQQ...
+2026-10-12 21:38:34,476 [INFO]   TQQQ: 21 bars fetched, latest close: 79.61
+2026-10-12 21:38:34,476 [INFO] Fetching data for SQQQ...
+2026-10-12 21:38:34,696 [INFO]   SQQQ: 21 bars fetched, latest close: 33.63
+2026-10-12 21:38:34,696 [INFO] ============================================================
+2026-10-12 21:38:34,696 [INFO] NDX SMA + RSI Strategy — Daily Run [original_agile] — 2026-10-12 21:38:34 ET
+2026-10-12 21:38:34,696 [INFO] ============================================================
+2026-10-12 21:38:34,697 [INFO] Portfolio loaded: TQQQ_100 | Value: $218,049.68
+2026-10-12 21:38:34,697 [INFO] Current Prices — TQQQ: $79.61 | SQQQ: $33.63
+2026-10-12 21:38:34,703 [INFO] Signal: TQQQ_100 | RSI: 56.5 | NDX: 30664.7 | SMA50: 29822.5 | SMA250: 27171.5
+2026-10-12 21:38:34,703 [INFO] Reason: Full bull: NDX 30,664.7 is above SMA50 (29,822.5) and SMA250 (27,171.5); RSI 56.5 is below the 75 overbought trim line
+2026-10-12 21:38:34,703 [INFO]   No change — already in TQQQ_100
+2026-10-12 21:38:34,709 [INFO]   Daily summary logged: Value=$213,569.58 | P&L=+2035.70%
+2026-10-12 21:38:34,709 [INFO]   Benchmarks: NDX B&H=+1626.87% | TQQQ B&H=+38699.10%
+2026-10-12 21:38:34,709 [INFO] PORTFOLIO [original_agile]: TQQQ_100 | $213,569.58 | cash $0.00 | P&L +2035.70%
+2026-10-12 21:38:34,709 [INFO] ============================================================
+2026-10-12 21:38:34,709 [INFO] NDX SMA + RSI Strategy — Daily Run [symmetric_atr] — 2026-10-12 21:38:34 ET
+2026-10-12 21:38:34,709 [INFO] ============================================================
+2026-10-12 21:38:34,709 [INFO] Portfolio loaded: TQQQ_100 | Value: $363,321.89
+2026-10-12 21:38:34,709 [INFO] Current Prices — TQQQ: $79.61 | SQQQ: $33.63
+2026-10-12 21:38:34,715 [INFO] Signal: TQQQ_100 | RSI: 56.5 | NDX: 30664.7 | SMA50: 29822.5 | SMA250: 27171.5
+2026-10-12 21:38:34,715 [INFO] Reason: Full bull: NDX 30,664.7 is above SMA50 (29,822.5) and SMA250 (27,171.5); RSI 56.5 is below the 75 overbought trim line
+2026-10-12 21:38:34,715 [INFO]   No change — already in TQQQ_100
+2026-10-12 21:38:34,720 [INFO]   Daily summary logged: Value=$355,857.00 | P&L=+3458.57%
+2026-10-12 21:38:34,720 [INFO]   Benchmarks: NDX B&H=+1626.87% | TQQQ B&H=+38699.10%
+2026-10-12 21:38:34,720 [INFO] PORTFOLIO [symmetric_atr]: TQQQ_100 | $355,857.00 | cash $0.00 | P&L +3458.57%
+2026-10-12 21:38:35,306 [ERROR] HTTP Error 401: {"finance":{"result":null,"error":{"code":"Unauthorized","description":"Invalid Crumb"}}}
+2026-10-12 21:38:35,555 [ERROR] HTTP Error 401: {"finance":{"result":null,"error":{"code":"Unauthorized","description":"Invalid Crumb"}}}
