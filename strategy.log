@@ -289,3 +289,33 @@
 2026-10-15 18:41:42,891 [ERROR] HTTP Error 401: {"finance":{"result":null,"error":{"code":"Unauthorized","description":"Invalid Crumb"}}}
 2026-10-15 18:41:42,899 [ERROR] HTTP Error 401: {"finance":{"result":null,"error":{"code":"Unauthorized","description":"Invalid Crumb"}}}
 2026-10-15 18:41:42,900 [ERROR] HTTP Error 401: {"finance":{"result":null,"error":{"code":"Unauthorized","description":"Invalid Crumb"}}}
+2026-10-16 18:13:10,101 [INFO] Fetching data for ^NDX...
+2026-10-16 18:13:10,567 [INFO]   ^NDX: 501 bars fetched, latest close: 29187.55
+2026-10-16 18:13:10,567 [INFO] Fetching data for TQQQ...
+2026-10-16 18:13:10,882 [INFO]   TQQQ: 22 bars fetched, latest close: 68.21
+2026-10-16 18:13:10,882 [INFO] Fetching data for SQQQ...
+2026-10-16 18:13:11,167 [INFO]   SQQQ: 22 bars fetched, latest close: 38.90
+2026-10-16 18:13:11,167 [INFO] ============================================================
+2026-10-16 18:13:11,167 [INFO] NDX SMA + RSI Strategy — Daily Run [original_agile] — 2026-10-16 18:13:11 ET
+2026-10-16 18:13:11,167 [INFO] ============================================================
+2026-10-16 18:13:11,167 [INFO] Portfolio loaded: TQQQ_100 | Value: $198,036.76
+2026-10-16 18:13:11,168 [INFO] Current Prices — TQQQ: $68.21 | SQQQ: $38.90
+2026-10-16 18:13:11,171 [INFO] Signal: CASH | RSI: 35.2 | NDX: 29187.5 | SMA50: 29868.0 | SMA250: 27254.9
+2026-10-16 18:13:11,171 [INFO] Reason: Exit: NDX 29187.5 below SMA50 exit level (29868.0)
+2026-10-16 18:13:11,171 [INFO]   TRADE SIGNAL: TQQQ_100 → CASH
+2026-10-16 18:13:11,171 [INFO]   SELL TQQQ: 2682.6979 @ $68.21 = $182,986.82 (target 0%)
+2026-10-16 18:13:11,176 [INFO]   Daily summary logged: Value=$182,986.82 | P&L=+1729.87%
+2026-10-16 18:13:11,176 [INFO]   Benchmarks: NDX B&H=+1543.68% | TQQQ B&H=+33143.14%
+2026-10-16 18:13:11,176 [INFO] PORTFOLIO [original_agile]: CASH | $182,986.82 | cash $182,986.82 | P&L +1729.87%
+2026-10-16 18:13:11,176 [INFO] ============================================================
+2026-10-16 18:13:11,176 [INFO] NDX SMA + RSI Strategy — Daily Run [symmetric_atr] — 2026-10-16 18:13:11 ET
+2026-10-16 18:13:11,176 [INFO] ============================================================
+2026-10-16 18:13:11,176 [INFO] Portfolio loaded: TQQQ_100 | Value: $329,975.67
+2026-10-16 18:13:11,176 [INFO] Current Prices — TQQQ: $68.21 | SQQQ: $38.90
+2026-10-16 18:13:11,179 [INFO] Signal: CASH | RSI: 35.2 | NDX: 29187.5 | SMA50: 29868.0 | SMA250: 27254.9
+2026-10-16 18:13:11,179 [INFO] Reason: Exit: NDX 29187.5 below SMA50 exit level (29454.0)
+2026-10-16 18:13:11,179 [INFO]   TRADE SIGNAL: TQQQ_100 → CASH
+2026-10-16 18:13:11,179 [INFO]   SELL TQQQ: 4470.0037 @ $68.21 = $304,898.95 (target 0%)
+2026-10-16 18:13:11,182 [INFO]   Daily summary logged: Value=$304,898.95 | P&L=+2948.99%
+2026-10-16 18:13:11,182 [INFO]   Benchmarks: NDX B&H=+1543.68% | TQQQ B&H=+33143.14%
+2026-10-16 18:13:11,182 [INFO] PORTFOLIO [symmetric_atr]: CASH | $304,898.95 | cash $304,898.95 | P&L +2948.99%
