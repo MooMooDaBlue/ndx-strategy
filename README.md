@@ -12,9 +12,9 @@
 > - Simulated, hypothetical, or backtested performance is **never a guarantee of future market results**.
 > - The developers and contributors assume **no responsibility or liability** for any financial trades or investment decisions you make.
 
-An institutional-grade, fully automated algorithmic paper-trading strategy and real-time monitoring terminal for NASDAQ-100 leveraged ETFs (**TQQQ / SQQQ**). 
+A fully automated paper-trading strategy and monitoring dashboard for NASDAQ-100 leveraged ETFs (**TQQQ / SQQQ**).
 
-Runs **100% serverless and autonomously** in the cloud via GitHub Actions and GitHub Pages with zero required local hardware or maintenance.
+Runs serverless in the cloud via GitHub Actions and GitHub Pages; no local hardware is required.
 
 ---
 
@@ -24,28 +24,41 @@ The live interactive terminal is hosted continuously on GitHub Pages:
 
 👉 **[https://MooMooDaBlue.github.io/ndx-strategy/](https://MooMooDaBlue.github.io/ndx-strategy/)**
 
-- **Dual Strategy Ruleset Benchmarking**: Toggle between **Symmetric 1.0× ATR** (Macro Defensive Hysteresis, +3,521% 16Y return) and **Original Agile Model** (Fast SMA50 Stop & 1% Confirmation Buffer, +2,073% 16Y return), or overlay both models side-by-side on the chart!
+- **Dual Strategy Ruleset Benchmarking**: Toggle between **Symmetric 1.0× ATR** (ATR hysteresis around SMA50) and **Original Agile Model** (SMA50 stop & 1% re-entry buffer), or overlay both on the chart. Return badges are computed from the data, not hard-coded.
 - **Interactive Capital Simulator**: Test any initial capital amount ($5K, $10K, $25K, $50K, $100K presets or any custom figure) to see scaled returns, drawdowns, and compounded terminal value.
 - **Multi-Era Macro Stress-Testing**: Instant 1-click toggles across key historical regimes: **1M**, **6M**, **1Y**, **5Y**, **2022 Bear Market** (-80% TQQQ crash avoidance), **2020 COVID Crash**, and **16Y Full Inception (2010–2026)**.
-- **Real-Time Market Tracking**: Live NDX status, countdown timer to daily run, and key indicator gauges (SMA50, SMA250, RSI-14).
+- **Market Tracking**: NDX status and indicator gauges (SMA50, SMA250, RSI-14). The Top-20 heatmap is live on the local dashboard and a once-a-day snapshot on Pages.
 - **Interactive Multi-Chart Studio**: Dynamic Chart.js visualizations for Strategy vs Buy-and-Hold benchmarks, NDX vs SMA trend bands, and RSI momentum zones.
-- **Searchable Execution Ledger**: Audited table of all 400+ historical trades (402 executions with multi-leg BUY/SELL/TRIM) and year filter (2010–2026).
+- **Searchable Execution Ledger**: Every executed leg (BUY / SELL / TRIM) with fill price and slippage cost, with year filter.
 - **Streaming Execution Terminal**: Monospaced terminal display streaming real-time strategy logs.
 
 ---
 
-## ⚡ Cloud Automation Architecture (Autonomous & Eternal)
+## 📊 Backtest Results (2010-02-11 → 2026-10-16, $10,000 start)
+
+| Model | Total return | CAGR | Max drawdown |
+|---|---|---|---|
+| Symmetric 1.0× ATR | +1,826% | 19.4% | −52.6% |
+| Original Agile | +1,400% | 17.6% | −61.2% |
+| NDX buy & hold | +1,544% | — | — |
+| TQQQ buy & hold | +33,143% | — | — |
+
+Includes 5 bps slippage per leg and T-bill interest on cash. See **Methodology & limitations** before reading anything into these numbers.
+
+---
+
+## ⚡ Cloud Automation Architecture
 
 ```
                        ┌────────────────────────────────────────┐
-                       │  GitHub Actions Cron (Mon-Fri 19:50Z) │
-                       │    (1:50 PM MT / 3:50 PM ET - Close)   │
+                       │  GitHub Actions Cron (Mon-Fri, several │
+                       │  attempts after the 4:00 PM ET close)  │
                        └───────────────────┬────────────────────┘
                                            │
                                            ▼
                        ┌────────────────────────────────────────┐
                        │   Execute: run_cloud_strategy.py       │
-                       │   • Fetch ^NDX, TQQQ, SQQQ quotes       │
+                       │   • Fetch ^NDX, TQQQ, SQQQ, ^IRX        │
                        │   • Evaluate Symmetric 1.0x ATR Signal │
                        │   • Update portfolio_state.json        │
                        │   • Send ntfy.sh Mobile Alert          │
@@ -61,13 +74,13 @@ The live interactive terminal is hosted continuously on GitHub Pages:
                                            │
                                            ▼
                        ┌────────────────────────────────────────┐
-                       │  GitHub Pages Terminal (Live 24/7/365) │
+                       │  GitHub Pages dashboard (docs/)        │
                        │  https://MooMooDaBlue.github.io/       │
                        │  ndx-strategy/                         │
                        └────────────────────────────────────────┘
 ```
 
-- **Daily Auto-Run**: Executes Monday–Friday at 1:50 PM Mountain Time (3:50 PM Eastern Time), 10 minutes before US market close.
+- **Daily Auto-Run**: Executes Monday–Friday after the 4:00 PM ET close (window 16:00–23:59 ET; GitHub cron is often late, so several attempts are scheduled and only the first one runs).
 - **NYSE Holiday Protection**: Automatically checks NYSE trading holiday calendars (Good Friday, Memorial Day, Labor Day, etc.) and skips closed sessions.
 - **On-Demand Cloud Runs**: Can be triggered anytime via the **Actions** tab on GitHub using `workflow_dispatch`.
 - **Phone Notifications**: Dispatches real-time markdown notifications with trade decisions to your phone via `ntfy.sh`.
@@ -82,12 +95,31 @@ The live interactive terminal is hosted continuously on GitHub Pages:
 
 2. **Symmetric 1.0× ATR Hysteresis & Downside Protection**:
    - **Re-Entry Buffer**: When in Cash, price must clear `SMA50 + (1.0 × ATR)` to confirm re-entry and avoid buying false bounces.
-   - **Downside Protection Floor**: When holding TQQQ, minor tests or shallow dips below the 50-day SMA do **not** trigger premature panic exits. Price must confirm a close below `SMA50 - (1.0 × ATR)` to exit to Cash.
+   - **Downside Protection Floor**: When holding TQQQ, shallow dips below the 50-day SMA do **not** trigger exits, in either regime. Price must close below `SMA50 - (1.0 × ATR)` (Wilder ATR-14) to exit.
 
 3. **Momentum & Divergence Management**:
    - **Overbought Trim**: RSI-14 $\ge 75$ trims allocation to 30% TQQQ with momentum reset lock.
    - **Bearish Divergence**: Trims allocation to 50% TQQQ when higher price highs coincide with lower RSI highs.
    - **Tactical Shorting**: In deep bear regimes (below both SMAs), enters SQQQ only within the RSI 35–55 sweet spot, avoiding oversold short traps.
+
+---
+
+## 🔬 Methodology & limitations
+
+- **Execution model**: signals use the official daily close and fill at that same close (a market-on-close assumption) with 5 bps slippage per leg. No commissions, borrow costs or taxes; fractional shares are allowed.
+- **Backtest vs. live**: history up to `backtest_end` (in `portfolio_state.json`) is simulated (`source=backtest` rows); rows written by the daily cloud run are `source=live`. The "live" equity curve continues from the simulated portfolio — it is not an independent track record.
+- **Overfitting**: thresholds (ATR multiple, RSI levels, buffers) were chosen with knowledge of this same 2010–2026 history. Expect out-of-sample results to be worse.
+- **Corporate actions**: live runs adjust held shares for splits and credit cash dividends; the backtest uses total-return-adjusted prices.
+- **Heatmap weights** are static approximations (see `TOP_20_AS_OF` in `web_dashboard.py`).
+
+## 📁 Files
+
+| File | Contents |
+|---|---|
+| `portfolio_state.json`, `daily_summary.csv`, `trade_log.csv` | Symmetric ATR model (primary) |
+| `portfolio_state_agile.json`, `daily_summary_agile.csv`, `trade_log_agile.csv` | Original Agile model |
+| `docs/` | The only frontend copy — served by GitHub Pages and by the local dashboard |
+| `generate_full_16y_data.py` | Regenerates both models' full history with the live engine |
 
 ---
 
@@ -102,7 +134,9 @@ run_dashboard.bat
 # Or via Command Line:
 python web_dashboard.py
 ```
-*(Runs the local view-only web server at `http://127.0.0.1:5050`).*
+*(Runs the local view-only web server at `http://127.0.0.1:5050` and warns if your checkout is behind the cloud's commits).*
+
+Tests are offline: `python -m pytest -q tests`.
 
 ---
 
@@ -111,6 +145,6 @@ python web_dashboard.py
 > **READ CAREFULLY BEFORE ACCESSING, USING, OR FORKING THIS REPOSITORY:**
 >
 > 1. **NOT FINANCIAL, LEGAL, OR INVESTMENT ADVICE**: None of the content, code, algorithms, data, backtests, simulations, charts, trade logs, or signals presented in this repository or associated web dashboards constitute financial, investment, legal, tax, or trading advice. It is strictly not an offer, recommendation, or solicitation to buy or sell any security, ETF, derivative, or digital asset.
-> 2. **EDUCATIONAL & PAPER-TRADING BENCHMARK ONLY**: This software is an open-source paper-trading framework and quantitative simulation designed purely to benchmark algorithmic models against buy-and-hold strategies. Simulated paper trades do not represent actual trading and have fundamental limitations (e.g. slippage, liquidity constraints, transaction fees, execution delays, margin/borrow rates, and psychological factors are not modeled). Backtest cash earns historical 13-week T-bill yields; no slippage, fees or taxes modeled.
+> 2. **EDUCATIONAL & PAPER-TRADING BENCHMARK ONLY**: This software is an open-source paper-trading framework and quantitative simulation designed purely to benchmark algorithmic models against buy-and-hold strategies. Simulated paper trades do not represent actual trading and have fundamental limitations (e.g. liquidity constraints, transaction fees, execution delays, margin/borrow rates, and psychological factors are not modeled). Cash earns 13-week T-bill yields; slippage is a flat 5 bps per leg; no fees or taxes are modeled.
 > 3. **EXTREME LEVERAGED ETF RISKS**: Triple-leveraged ETFs (**TQQQ** and **SQQQ**) are high-risk financial derivatives designed solely for short-term institutional speculation. Holding leveraged ETFs over extended periods carries extreme compounding risk, volatility decay, and substantial probability of catastrophic loss or total depletion of invested capital.
 > 4. **NO WARRANTY & ZERO LIABILITY**: The software is provided "as is", without warranty of any kind, express or implied. The author, maintainers, and contributors are not licensed financial advisors, broker-dealers, or registered analysts. Under no circumstances shall the author or contributors be liable for any direct, indirect, special, incidental, or consequential damages or financial losses arising from the use of or inability to use this repository. Always consult an accredited financial professional before making real investment decisions.

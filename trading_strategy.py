@@ -12,22 +12,27 @@ Rules:
   8. NDX recrosses 50-day SMA AND RSI still < 50          → Stay Cash (wait for confirmation)
 
 Hysteresis (symmetric_atr model): enter longs only above SMA50 + 1.0*ATR; exit only below
-SMA50 - 1.0*ATR. original_agile model: enter above SMA50 * 1.01, exit below SMA50.
+SMA50 - 1.0*ATR, in both the bull (above SMA250) and bear (below SMA250) regimes.
+original_agile model: enter above SMA50 * 1.01, exit below SMA50.
 Overbought trim lock: after RSI >= 75 trims to 30%, stay trimmed until RSI dips below 60 and
-re-crosses above it. All times are US/Eastern.
+re-crosses above it (bar-over-bar). All times are US/Eastern.
 
-Run this script daily at 3:50pm EST on trading days.
+Execution model: signals use the official daily close and fill at that close (market-on-close)
+with `slippage_bps` charged on every leg. Run after 16:00 ET on NYSE trading days.
 Data source: Yahoo Finance (yfinance) - free, no API key required.
 """
 
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import holidays
 import json
 import os
+import sys
 import requests
 import logging
 from datetime import datetime, date
+from typing import NamedTuple
 from zoneinfo import ZoneInfo
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -37,6 +42,15 @@ ET = ZoneInfo("America/New_York")
 def now_et() -> datetime:
     """Naive datetime in US/Eastern — the single clock used for all state, guards and logs."""
     return datetime.now(ET).replace(tzinfo=None)
+
+
+def is_trading_day(dt: date | None = None) -> bool:
+    """True if dt (default: today ET) is a weekday and not an NYSE market holiday."""
+    if dt is None:
+        dt = now_et().date()
+    if dt.weekday() >= 5:
+        return False
+    return dt not in holidays.NYSE(years=dt.year)
 
 # ─────────────────────────────────────────────
 # CONFIGURATION — Edit these settings
@@ -51,6 +65,8 @@ CONFIG = {
     "portfolio_file": os.path.join(BASE_DIR, "portfolio_state.json"),
     "trade_log_file": os.path.join(BASE_DIR, "trade_log.csv"),
     "daily_log_file": os.path.join(BASE_DIR, "daily_summary.csv"),
+    "log_file": os.path.join(BASE_DIR, "strategy.log"),
+    "log_max_lines": 3000,          # strategy.log is committed daily — keep it bounded
 
     # RSI thresholds
     "rsi_overbought": 75,           # Trim to 30% above this
@@ -63,6 +79,7 @@ CONFIG = {
     # Requires price to clear SMA50 + (mult * ATR) to enter/re-enter longs.
     # Protects against whipsaw by only exiting when price breaks below SMA50 - (mult * ATR).
     "atr_buffer_multiplier": 1.0,
+    "atr_period": 14,               # Wilder-smoothed
 
     # Original Agile model: re-entry requires price > SMA50 * (1 + pct)
     "orig_entry_buffer_pct": 0.01,
@@ -71,8 +88,12 @@ CONFIG = {
     # RSI crosses above this threshold from below (momentum reset proof)
     "rsi_reset_threshold": 60,
 
-    # Risk-free rate for cash interest accrual (annual, e.g. 0.045 = 4.5%)
+    # Cash earns the 13-week T-bill yield (live and backtest); flat rate is the fallback
+    "risk_free_ticker": "^IRX",
     "risk_free_annual_rate": 0.045,
+
+    # Execution cost charged on every leg (spread + MOC slippage), in basis points
+    "slippage_bps": 5.0,
 
     # Allocation rules
     "full_tqqq_pct": 1.00,
@@ -98,27 +119,60 @@ CONFIG = {
 # ─────────────────────────────────────────────
 # LOGGING SETUP
 # ─────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    force=True,
-    handlers=[
-        logging.FileHandler(os.path.join(BASE_DIR, "strategy.log"), encoding="utf-8"),
-        logging.StreamHandler(open(1, "w", encoding="utf-8", closefd=False))
-    ]
-)
-log = logging.getLogger(__name__)
-# Log timestamps in US/Eastern regardless of machine timezone (cloud = UTC, local = MT)
-logging.Formatter.converter = lambda *args: now_et().timetuple()
+log = logging.getLogger("ndx_strategy")
+log.addHandler(logging.NullHandler())
+
+
+class _ETFormatter(logging.Formatter):
+    """Log timestamps in US/Eastern regardless of machine timezone (cloud = UTC, local = MT)."""
+
+    def converter(self, timestamp):
+        return datetime.fromtimestamp(timestamp, ET).timetuple()
+
+
+def setup_logging(log_file: str = None):
+    """Attach file + console handlers. Called by entry points only — importing has no side effects."""
+    if getattr(log, "_configured", False):
+        return
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    fmt = _ETFormatter("%(asctime)s [%(levelname)s] %(message)s")
+    for handler in (logging.FileHandler(log_file or CONFIG["log_file"], encoding="utf-8"),
+                    logging.StreamHandler(sys.stdout)):
+        handler.setFormatter(fmt)
+        log.addHandler(handler)
+    log.setLevel(logging.INFO)
+    log.propagate = False
+    log._configured = True
+
+
+def trim_log_file(path: str = None, max_lines: int = None):
+    """Keep only the newest `max_lines` lines of the log."""
+    path = path or CONFIG["log_file"]
+    max_lines = max_lines or CONFIG["log_max_lines"]
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8", errors="replace") as f:
+        lines = f.readlines()
+    if len(lines) > max_lines:
+        with open(path, "w", encoding="utf-8") as f:
+            f.writelines(lines[-max_lines:])
 
 
 # ─────────────────────────────────────────────
 # DATA FETCHING
 # ─────────────────────────────────────────────
+class MarketData(NamedTuple):
+    ndx: pd.DataFrame
+    tqqq: pd.DataFrame
+    sqqq: pd.DataFrame
+    rf_rate: float
+
+
 def fetch_data(ticker: str, period: str = "2y") -> pd.DataFrame:
-    """Fetch historical OHLCV data from Yahoo Finance."""
+    """Fetch historical OHLCV data (plus Dividends / Stock Splits) from Yahoo Finance."""
     log.info(f"Fetching data for {ticker}...")
-    df = yf.download(ticker, period=period, auto_adjust=True, progress=False)
+    df = yf.download(ticker, period=period, auto_adjust=True, actions=True, progress=False)
     if df.empty:
         raise ValueError(f"No data returned for {ticker}")
     # Flatten MultiIndex columns if present
@@ -130,54 +184,65 @@ def fetch_data(ticker: str, period: str = "2y") -> pd.DataFrame:
 
 
 def _ensure_today_bar(df: pd.DataFrame, ticker: str, today: date) -> pd.DataFrame:
-    """If the latest daily bar is not today's session, attempt to synthesize today's candle via fast_info."""
-    if df.empty:
+    """If the daily series has no bar for `today` yet, build one from today's timestamped
+    intraday bars. Nothing is synthesized unless Yahoo returns bars dated today, so a stale
+    feed still fails the freshness check in fetch_market_data."""
+    if df.empty or pd.Timestamp(df.index[-1]).date() == today:
         return df
-    last_bar = pd.Timestamp(df.index[-1]).date()
-    if last_bar == today:
-        return df
-
     try:
-        t = yf.Ticker(ticker)
-        price = getattr(t.fast_info, "last_price", None) or t.fast_info.get("last_price")
-        if not price or price <= 0:
-            h = t.history(period="1d")
-            if not h.empty and pd.Timestamp(h.index[-1]).date() == today:
-                price = float(h["Close"].iloc[-1])
-        if price and price > 0:
-            high_p = getattr(t.fast_info, "day_high", None) or price
-            low_p = getattr(t.fast_info, "day_low", None) or price
-            open_p = getattr(t.fast_info, "open", None) or price
-            log.info(f"  [BACKFILL] Synthesized today's bar for {ticker} via fast_info: ${price:.2f}")
-            new_row = pd.DataFrame({
-                "Open": [open_p], "High": [high_p], "Low": [low_p],
-                "Close": [price], "Volume": [0]
-            }, index=[pd.Timestamp(today)])
-            df = pd.concat([df, new_row])
+        h = yf.Ticker(ticker).history(period="1d", interval="5m", auto_adjust=True)
+        if h.empty:
+            return df
+        idx = h.index.tz_convert(ET) if h.index.tz is not None else h.index
+        h = h[np.array([ts.date() == today for ts in idx])]
+        if h.empty:
+            log.warning(f"  {ticker}: intraday feed has no bars for {today}")
+            return df
+        bar = pd.DataFrame({
+            "Open": [float(h["Open"].iloc[0])], "High": [float(h["High"].max())],
+            "Low": [float(h["Low"].min())], "Close": [float(h["Close"].iloc[-1])],
+            "Volume": [float(h["Volume"].sum())], "Dividends": [0.0], "Stock Splits": [0.0],
+        }, index=[pd.Timestamp(today)])
+        log.info(f"  [BACKFILL] Built today's {ticker} bar from {len(h)} intraday bars "
+                 f"(last {idx[-1]:%H:%M} ET): close ${bar['Close'].iloc[0]:.2f}")
+        return pd.concat([df, bar])
     except Exception as err:
         log.warning(f"  Could not backfill today's bar for {ticker}: {err}")
+        return df
 
-    return df
 
-
-def fetch_market_data(cfg: dict = None) -> tuple:
-    """Fetch NDX (2y) and TQQQ/SQQQ (1mo); fail if the latest bar is not today's ET session."""
+def fetch_risk_free_rate(cfg: dict = None) -> float:
+    """Latest 13-week T-bill yield as a decimal; falls back to the configured flat rate."""
     cfg = cfg or CONFIG
-    ndx_df = fetch_data("^NDX", period="2y")
-    tqqq_df = fetch_data(cfg["tqqq_ticker"], period="1mo")
-    sqqq_df = fetch_data(cfg["sqqq_ticker"], period="1mo")
-    today = now_et().date()
+    fallback = cfg.get("risk_free_annual_rate", 0.0)
+    try:
+        df = yf.download(cfg["risk_free_ticker"], period="1mo", auto_adjust=True, progress=False)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        rate = float(df["Close"].dropna().iloc[-1]) / 100.0
+        if 0.0 <= rate < 0.25:
+            return rate
+        log.warning(f"  Implausible {cfg['risk_free_ticker']} yield {rate:.4f}; using {fallback:.2%}")
+    except Exception as err:
+        log.warning(f"  Risk-free rate unavailable ({err}); using {fallback:.2%}")
+    return fallback
 
-    ndx_df = _ensure_today_bar(ndx_df, "^NDX", today)
-    tqqq_df = _ensure_today_bar(tqqq_df, cfg["tqqq_ticker"], today)
-    sqqq_df = _ensure_today_bar(sqqq_df, cfg["sqqq_ticker"], today)
+
+def fetch_market_data(cfg: dict = None) -> MarketData:
+    """Fetch NDX (2y), TQQQ/SQQQ (3mo, with splits/dividends) and the T-bill rate;
+    fail if any latest bar is not today's ET session."""
+    cfg = cfg or CONFIG
+    today = now_et().date()
+    ndx_df = _ensure_today_bar(fetch_data("^NDX", period="2y"), "^NDX", today)
+    tqqq_df = _ensure_today_bar(fetch_data(cfg["tqqq_ticker"], period="3mo"), cfg["tqqq_ticker"], today)
+    sqqq_df = _ensure_today_bar(fetch_data(cfg["sqqq_ticker"], period="3mo"), cfg["sqqq_ticker"], today)
 
     if not os.environ.get("ALLOW_STALE_DATA"):
         for name, df in (("^NDX", ndx_df), ("TQQQ", tqqq_df), ("SQQQ", sqqq_df)):
             last_bar = pd.Timestamp(df.index[-1]).date()
             if last_bar != today:
                 raise RuntimeError(f"Stale data for {name}: latest bar {last_bar}, expected {today}")
-    return ndx_df, tqqq_df, sqqq_df
+    return MarketData(ndx_df, tqqq_df, sqqq_df, fetch_risk_free_rate(cfg))
 
 
 # ─────────────────────────────────────────────
@@ -200,16 +265,17 @@ def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
     avg_loss = loss.ewm(alpha=1/period, min_periods=period, adjust=False).mean()
     rs = avg_gain / avg_loss.replace(0, np.nan)
     rsi = 100 - (100 / (1 + rs))
-    return rsi
+    # No losses in the window → RSI is 100, not undefined
+    return rsi.mask(avg_loss.eq(0) & avg_gain.notna(), 100.0)
 
 
 def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
-    """Average True Range for dynamic volatility scaling."""
+    """Wilder's Average True Range for dynamic volatility scaling."""
     tr1 = df['High'] - df['Low']
     tr2 = abs(df['High'] - df['Close'].shift())
     tr3 = abs(df['Low'] - df['Close'].shift())
     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    return tr.rolling(window=period).mean()
+    return tr.ewm(alpha=1/period, min_periods=period, adjust=False).mean()
 
 
 def bearish_divergence_series(close: pd.Series, rsi: pd.Series, lookback: int) -> pd.Series:
@@ -228,7 +294,7 @@ def compute_indicators(ndx_df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     out["sma50"] = calculate_sma(close, cfg["sma_short"])
     out["sma250"] = calculate_sma(close, cfg["sma_long"])
     out["rsi"] = calculate_rsi(close, cfg["rsi_period"])
-    out["atr"] = calculate_atr(ndx_df, 14)
+    out["atr"] = calculate_atr(ndx_df, cfg.get("atr_period", 14))
     out["bearish_div"] = bearish_divergence_series(close, out["rsi"], cfg["divergence_lookback"])
     return out
 
@@ -241,6 +307,7 @@ def decide_signal(price: float, s50: float, s250: float, rsi_val: float, atr_val
                   prev_rsi: float, cfg: dict, model: str = "symmetric_atr") -> dict:
     """
     Pure decision function shared by the live engine, both models and the backtest.
+    prev_rsi is the RSI of the previous bar (not of the previous run).
     model="symmetric_atr": entry > SMA50 + k*ATR, exit < SMA50 - k*ATR.
     model="original_agile": entry > SMA50 * (1 + pct), clean exit < SMA50.
     """
@@ -265,12 +332,12 @@ def decide_signal(price: float, s50: float, s250: float, rsi_val: float, atr_val
         trim_active = False
         log.info(f"  RSI reset: {prev_rsi:.1f} -> {rsi_val:.1f} crossed {reset_lvl} — trim lock released")
 
-    if above_250:
-        if in_exit:
-            signal = current_position
-            reason = (f"Downside buffer hold: NDX {price:.1f} below SMA50 ({s50:.1f}) "
-                      f"but above exit floor ({exit_level:.1f})")
-        elif below_50:
+    if in_exit:  # exit buffer applies in both regimes
+        signal = current_position
+        reason = (f"Downside buffer hold: NDX {price:.1f} below SMA50 ({s50:.1f}) "
+                  f"but above exit floor ({exit_level:.1f})")
+    elif above_250:
+        if below_50:
             signal, trim_active = "CASH", False
             reason = f"Exit: NDX {price:.1f} below SMA50 exit level ({exit_level:.1f})"
         elif in_entry:
@@ -320,12 +387,13 @@ def decide_signal(price: float, s50: float, s250: float, rsi_val: float, atr_val
 
 
 def determine_signal(ndx_df: pd.DataFrame, cfg: dict, current_position: str = "CASH",
-                     trim_active: bool = False, prev_rsi: float = 50.0,
-                     model: str = "symmetric_atr") -> dict:
+                     trim_active: bool = False, model: str = "symmetric_atr") -> dict:
     """Compute indicators on ndx_df and return the signal dict for the latest bar."""
-    last = compute_indicators(ndx_df, cfg).iloc[-1]
+    ind = compute_indicators(ndx_df, cfg)
+    last = ind.iloc[-1]
     if pd.isna(last[["sma50", "sma250", "rsi", "atr"]]).any():
         raise ValueError("Not enough NDX history to compute indicators")
+    prev_rsi = float(ind["rsi"].iloc[-2]) if len(ind) > 1 and pd.notna(ind["rsi"].iloc[-2]) else 50.0
     price, s50, s250 = float(last["close"]), float(last["sma50"]), float(last["sma250"])
     rsi_val, atr_val = float(last["rsi"]), float(last["atr"])
     d = decide_signal(price, s50, s250, rsi_val, atr_val, bool(last["bearish_div"]),
@@ -350,37 +418,43 @@ def determine_signal(ndx_df: pd.DataFrame, cfg: dict, current_position: str = "C
 # ─────────────────────────────────────────────
 # PORTFOLIO STATE MANAGEMENT
 # ─────────────────────────────────────────────
+def new_portfolio(starting_capital: float) -> dict:
+    return {
+        "position": "CASH",
+        "allocation_pct": 0.0,
+        "cash": starting_capital,
+        "tqqq_shares": 0.0,
+        "sqqq_shares": 0.0,
+        "tqqq_avg_cost": 0.0,
+        "sqqq_avg_cost": 0.0,
+        "total_value": starting_capital,
+        "starting_capital": starting_capital,
+        "last_signal": None,
+        "last_updated": None,
+        "last_run_date": None,
+        "trim_active": False,
+        "prev_rsi": 50.0,
+    }
+
+
 def load_portfolio(filepath: str, starting_capital: float) -> dict:
     """Load portfolio state from disk, or initialize if first run."""
     if os.path.exists(filepath):
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             portfolio = json.load(f)
         log.info(f"Portfolio loaded: {portfolio['position']} | Value: ${portfolio['total_value']:,.2f}")
     else:
-        portfolio = {
-            "position": "CASH",
-            "allocation_pct": 1.0,
-            "cash": starting_capital,
-            "tqqq_shares": 0.0,
-            "sqqq_shares": 0.0,
-            "tqqq_avg_cost": 0.0,
-            "sqqq_avg_cost": 0.0,
-            "total_value": starting_capital,
-            "starting_capital": starting_capital,
-            "last_signal": None,
-            "last_updated": None,
-            "last_run_date": None,
-            "trim_active": False,
-            "prev_rsi": 50.0,
-        }
+        portfolio = new_portfolio(starting_capital)
         log.info(f"New portfolio initialized with ${starting_capital:,.2f}")
-        save_portfolio(portfolio, filepath)
     return portfolio
 
 
 def save_portfolio(portfolio: dict, filepath: str):
-    with open(filepath, "w") as f:
+    """Atomic write: a crash mid-write never leaves a truncated state file."""
+    tmp = filepath + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(portfolio, f, indent=2)
+    os.replace(tmp, filepath)
 
 
 def update_portfolio_value(portfolio: dict, tqqq_price: float, sqqq_price: float) -> dict:
@@ -392,21 +466,51 @@ def update_portfolio_value(portfolio: dict, tqqq_price: float, sqqq_price: float
 
 
 # ─────────────────────────────────────────────
+# CORPORATE ACTIONS (SPLITS / DIVIDENDS)
+# ─────────────────────────────────────────────
+def apply_corporate_actions(portfolio: dict, holdings: dict, since: str | None, today: date) -> list:
+    """Adjust held shares for splits and credit cash dividends with dates in (since, today].
+    `holdings` maps "tqqq"/"sqqq" to that ETF's daily frame (Stock Splits / Dividends columns).
+    Prices are split-adjusted by Yahoo, so without this a reverse split would crater the value."""
+    if not since:
+        return []
+    since_d = date.fromisoformat(since)
+    events = []
+    for key, df in holdings.items():
+        if portfolio.get(f"{key}_shares", 0) <= 0 or df is None or df.empty:
+            continue
+        if pd.Timestamp(df.index[0]).date() > since_d:
+            log.warning(f"  {key.upper()} history starts {pd.Timestamp(df.index[0]).date()} — "
+                        f"corporate actions since {since} may be missed")
+        for ts, row in df.iterrows():
+            d = pd.Timestamp(ts).date()
+            if not (since_d < d <= today):
+                continue
+            ratio = float(row.get("Stock Splits", 0) or 0)
+            if ratio > 0 and ratio != 1:
+                portfolio[f"{key}_shares"] *= ratio
+                portfolio[f"{key}_avg_cost"] /= ratio
+                events.append(f"{key.upper()} split {ratio:g}:1 on {d}")
+            div = float(row.get("Dividends", 0) or 0)
+            if div > 0:
+                cash = portfolio[f"{key}_shares"] * div
+                portfolio["cash"] += cash
+                events.append(f"{key.upper()} dividend ${div:.4f}/sh on {d} = ${cash:,.2f}")
+    for e in events:
+        log.info(f"  Corporate action: {e}")
+    return events
+
+
+# ─────────────────────────────────────────────
 # CASH INTEREST ACCRUAL
 # ─────────────────────────────────────────────
-def accrue_cash_interest(portfolio: dict, cfg: dict) -> dict:
-    """Apply daily risk-free rate to cash holdings based on calendar days elapsed.
+def accrue_cash_interest(portfolio: dict, annual_rate: float) -> dict:
+    """Apply the annual risk-free rate to cash for the calendar days since the previous run.
 
     IMPORTANT: last_updated is advanced here so each run only accrues interest
-    for the days since the *previous run*, not since the last trade.  Without
-    this, every no-trade cash day would re-accrue all historical interest from
-    the original trade timestamp.
+    for the days since the *previous run*, not since the last trade.
     """
-    if portfolio["cash"] <= 0 or not portfolio.get("last_updated"):
-        return portfolio
-
-    annual_rate = cfg.get("risk_free_annual_rate", 0.0)
-    if annual_rate <= 0:
+    if portfolio["cash"] <= 0 or not portfolio.get("last_updated") or annual_rate <= 0:
         return portfolio
 
     try:
@@ -419,7 +523,7 @@ def accrue_cash_interest(portfolio: dict, cfg: dict) -> dict:
     if days_elapsed > 0:
         interest = portfolio["cash"] * (annual_rate / 365) * days_elapsed
         portfolio["cash"] += interest
-        log.info(f"  Cash interest accrued: ${interest:.2f} ({days_elapsed} days @ {annual_rate*100:.1f}% annual)")
+        log.info(f"  Cash interest accrued: ${interest:.2f} ({days_elapsed} days @ {annual_rate*100:.2f}% annual)")
         # Advance the timestamp so the next run only accrues from today onward.
         portfolio["last_updated"] = now.isoformat()
 
@@ -433,12 +537,14 @@ def execute_trade(portfolio: dict, signal_data: dict, tqqq_price: float, sqqq_pr
                   cfg: dict) -> tuple:
     """
     Move the paper portfolio to the target allocation for signal_data["signal"].
+    Every leg fills at the given close adjusted by cfg["slippage_bps"] against us.
     Returns (portfolio, trades) where trades lists EVERY leg executed (SELL / TRIM / BUY).
     An empty list means no change was needed.
     """
     signal = signal_data["signal"]
     current = portfolio["position"]
     trades = []
+    slip = cfg.get("slippage_bps", 0.0) / 10_000
     portfolio = update_portfolio_value(portfolio, tqqq_price, sqqq_price)
 
     if signal == current:
@@ -449,28 +555,31 @@ def execute_trade(portfolio: dict, signal_data: dict, tqqq_price: float, sqqq_pr
     # 1. Close any SQQQ position we are leaving
     if portfolio["sqqq_shares"] > 0 and signal != "SQQQ":
         shares = portfolio["sqqq_shares"]
-        proceeds = shares * sqqq_price
+        fill = sqqq_price * (1 - slip)
+        proceeds = shares * fill
         portfolio["cash"] += proceeds
         portfolio["sqqq_shares"] = 0.0
         portfolio["sqqq_avg_cost"] = 0.0
-        trades.append(_make_trade("SELL", "SQQQ", shares, sqqq_price, proceeds, signal_data))
-        log.info(f"  Sold SQQQ: {shares:.4f} @ ${sqqq_price:.2f} = ${proceeds:,.2f}")
+        trades.append(_make_trade("SELL", "SQQQ", shares, fill, proceeds, shares * sqqq_price * slip, signal_data))
+        log.info(f"  Sold SQQQ: {shares:.4f} @ ${fill:.2f} = ${proceeds:,.2f}")
 
     # 2. Resize TQQQ to its target weight (0 when leaving TQQQ)
     total_value = portfolio["cash"] + portfolio["tqqq_shares"] * tqqq_price
     target_pct = ALLOC_PCT.get(signal, 0.0) if signal.startswith("TQQQ") else 0.0
     delta = total_value * target_pct - portfolio["tqqq_shares"] * tqqq_price
     if delta > 0.01:
-        shares = delta / tqqq_price
+        fill = tqqq_price * (1 + slip)
+        shares = delta / fill
         old = portfolio["tqqq_shares"]
-        portfolio["tqqq_avg_cost"] = (old * portfolio["tqqq_avg_cost"] + shares * tqqq_price) / (old + shares) if (old + shares) > 0 else tqqq_price
+        portfolio["tqqq_avg_cost"] = (old * portfolio["tqqq_avg_cost"] + shares * fill) / (old + shares)
         portfolio["tqqq_shares"] = old + shares
         portfolio["cash"] -= delta
-        trades.append(_make_trade("BUY", "TQQQ", shares, tqqq_price, delta, signal_data))
-        log.info(f"  Bought TQQQ: {shares:.4f} @ ${tqqq_price:.2f} = ${delta:,.2f} (target {target_pct:.0%})")
+        trades.append(_make_trade("BUY", "TQQQ", shares, fill, delta, shares * tqqq_price * slip, signal_data))
+        log.info(f"  Bought TQQQ: {shares:.4f} @ ${fill:.2f} = ${delta:,.2f} (target {target_pct:.0%})")
     elif delta < -0.01:
         shares = min(-delta / tqqq_price, portfolio["tqqq_shares"])
-        proceeds = shares * tqqq_price
+        fill = tqqq_price * (1 - slip)
+        proceeds = shares * fill
         portfolio["cash"] += proceeds
         if target_pct == 0:
             action = "SELL"
@@ -479,18 +588,19 @@ def execute_trade(portfolio: dict, signal_data: dict, tqqq_price: float, sqqq_pr
         else:
             action = "TRIM"
             portfolio["tqqq_shares"] -= shares
-        trades.append(_make_trade(action, "TQQQ", shares, tqqq_price, proceeds, signal_data))
-        log.info(f"  {action} TQQQ: {shares:.4f} @ ${tqqq_price:.2f} = ${proceeds:,.2f} (target {target_pct:.0%})")
+        trades.append(_make_trade(action, "TQQQ", shares, fill, proceeds, shares * tqqq_price * slip, signal_data))
+        log.info(f"  {action} TQQQ: {shares:.4f} @ ${fill:.2f} = ${proceeds:,.2f} (target {target_pct:.0%})")
 
     # 3. Open SQQQ
     if signal == "SQQQ":
         invest = portfolio["cash"] * cfg["sqqq_pct"]
-        shares = invest / sqqq_price
+        fill = sqqq_price * (1 + slip)
+        shares = invest / fill
         portfolio["sqqq_shares"] = shares
-        portfolio["sqqq_avg_cost"] = sqqq_price
+        portfolio["sqqq_avg_cost"] = fill
         portfolio["cash"] -= invest
-        trades.append(_make_trade("BUY", "SQQQ", shares, sqqq_price, invest, signal_data))
-        log.info(f"  Bought SQQQ: {shares:.4f} @ ${sqqq_price:.2f} = ${invest:,.2f}")
+        trades.append(_make_trade("BUY", "SQQQ", shares, fill, invest, shares * sqqq_price * slip, signal_data))
+        log.info(f"  Bought SQQQ: {shares:.4f} @ ${fill:.2f} = ${invest:,.2f}")
 
     portfolio["position"] = signal
     portfolio["allocation_pct"] = ALLOC_PCT.get(signal, 0.0)
@@ -500,19 +610,20 @@ def execute_trade(portfolio: dict, signal_data: dict, tqqq_price: float, sqqq_pr
     return portfolio, trades
 
 
-def _make_trade(action, ticker, shares, price, value, signal_data):
+def _make_trade(action, ticker, shares, price, value, cost, signal_data):
     return {
         "date": signal_data["date"],
         "timestamp": signal_data["timestamp"],
         "action": action,
         "ticker": ticker,
-        "shares": shares,
-        "price": price,
-        "value": value,
-        "ndx_price": signal_data["price"],
-        "sma50": signal_data["sma50"],
-        "sma250": signal_data["sma250"],
-        "rsi": signal_data["rsi"],
+        "shares": round(float(shares), 4),
+        "price": round(float(price), 2),
+        "value": round(float(value), 2),
+        "cost": round(float(cost), 2),
+        "ndx_price": round(float(signal_data["price"]), 2),
+        "sma50": round(float(signal_data["sma50"]), 2),
+        "sma250": round(float(signal_data["sma250"]), 2),
+        "rsi": round(float(signal_data["rsi"]), 2),
         "reason": signal_data["reason"],
     }
 
@@ -520,23 +631,32 @@ def _make_trade(action, ticker, shares, price, value, signal_data):
 # ─────────────────────────────────────────────
 # LOGGING TO CSV
 # ─────────────────────────────────────────────
-def log_trade(trade: dict, filepath: str):
-    df = pd.DataFrame([trade])
-    header = not os.path.exists(filepath)
-    df.to_csv(filepath, mode="a", header=header, index=False)
+def upsert_rows(filepath: str, rows: list, date_str: str):
+    """Replace any rows for `date_str` with `rows` and rewrite the file atomically.
+    Re-running a day is idempotent, and new columns are appended instead of being dropped."""
+    new = pd.DataFrame(rows)
+    if os.path.exists(filepath):
+        old = pd.read_csv(filepath)
+        old = old[old["date"].astype(str) != date_str]
+        cols = list(old.columns) + [c for c in new.columns if c not in old.columns]
+        df = pd.concat([old, new], ignore_index=True) if len(new) else old
+        df = df.reindex(columns=cols)
+    elif rows:
+        df = new
+    else:
+        return
+    tmp = filepath + ".tmp"
+    df.to_csv(tmp, index=False)
+    os.replace(tmp, filepath)
 
 
-def log_daily_summary(portfolio: dict, signal_data: dict, filepath: str, tqqq_price: float = 0.0):
-    # Benchmark buy-and-hold comparison
-    ndx_start = portfolio.get("benchmark_ndx_start", signal_data["price"])
-    tqqq_start = portfolio.get("benchmark_tqqq_start", tqqq_price) if tqqq_price > 0 else 1.0
-
-    alloc = ALLOC_PCT.get(portfolio.get("position", "CASH"), 0.0)
-
-    record = {
+def build_daily_record(portfolio: dict, signal_data: dict, tqqq_price: float, source: str) -> dict:
+    ndx_start = portfolio.get("benchmark_ndx_start") or signal_data["price"]
+    tqqq_start = portfolio.get("benchmark_tqqq_start") or tqqq_price
+    return {
         "date": signal_data["date"],
         "position": portfolio["position"],
-        "allocation_pct": alloc,
+        "allocation_pct": ALLOC_PCT.get(portfolio.get("position", "CASH"), 0.0),
         "total_value": round(portfolio["total_value"], 2),
         "cash": round(portfolio["cash"], 2),
         "tqqq_shares": round(portfolio["tqqq_shares"], 4),
@@ -550,37 +670,16 @@ def log_daily_summary(portfolio: dict, signal_data: dict, filepath: str, tqqq_pr
         "pnl_dollar": round(portfolio["total_value"] - portfolio["starting_capital"], 2),
         "pnl_pct": round((portfolio["total_value"] / portfolio["starting_capital"] - 1) * 100, 2),
         "ndx_buyhold_pnl_pct": round((signal_data["price"] / ndx_start - 1) * 100, 2),
-        "tqqq_buyhold_pnl_pct": round((tqqq_price / tqqq_start - 1) * 100, 2) if tqqq_price > 0 else 0.0,
+        "tqqq_buyhold_pnl_pct": round((tqqq_price / tqqq_start - 1) * 100, 2) if tqqq_start else 0.0,
+        "source": source,
     }
 
-    # If daily_summary.csv has existing columns, reindex to match them strictly
-    if os.path.exists(filepath):
-        try:
-            existing_cols = pd.read_csv(filepath, nrows=0).columns.tolist()
-            if "total_value_orig" in existing_cols and "total_value_orig" not in record:
-                orig_file = os.path.join(os.path.dirname(filepath) or ".", "portfolio_state_original.json")
-                if os.path.exists(orig_file):
-                    try:
-                        with open(orig_file, "r", encoding="utf-8") as f:
-                            p_orig = json.load(f)
-                        record["total_value_orig"] = round(p_orig.get("total_value", 0.0), 2)
-                        record["pos_orig"] = p_orig.get("position", "CASH")
-                    except Exception:
-                        record["total_value_orig"] = record["total_value"]
-                        record["pos_orig"] = record["position"]
-                else:
-                    record["total_value_orig"] = record["total_value"]
-                    record["pos_orig"] = record["position"]
-            df = pd.DataFrame([record])
-            df = df.reindex(columns=existing_cols)
-            df.to_csv(filepath, mode="a", header=False, index=False)
-        except Exception:
-            df = pd.DataFrame([record])
-            df.to_csv(filepath, mode="a", header=False, index=False)
-    else:
-        df = pd.DataFrame([record])
-        df.to_csv(filepath, mode="w", header=True, index=False)
 
+def log_daily_summary(portfolio: dict, signal_data: dict, filepath: str, tqqq_price: float,
+                      extra_fields: dict = None):
+    record = build_daily_record(portfolio, signal_data, tqqq_price, source="live")
+    record.update(extra_fields or {})
+    upsert_rows(filepath, [record], record["date"])
     log.info(f"  Daily summary logged: Value=${record['total_value']:,.2f} | P&L={record['pnl_pct']:+.2f}%")
     log.info(f"  Benchmarks: NDX B&H={record['ndx_buyhold_pnl_pct']:+.2f}% | TQQQ B&H={record['tqqq_buyhold_pnl_pct']:+.2f}%")
 
@@ -660,17 +759,17 @@ def _build_notification_body(signal_data: dict, portfolio: dict,
     if made_trade:
         alloc = {"TQQQ_100": "100%", "TQQQ_50": "50%", "TQQQ_30": "30%"}
         if signal.startswith("TQQQ") and prev_position.startswith("TQQQ"):
-            desc = f"Adjusted TQQQ {alloc.get(prev_position, prev_position)} \u2192 {alloc.get(signal, signal)}"
+            desc = f"Adjusted TQQQ {alloc.get(prev_position, prev_position)} → {alloc.get(signal, signal)}"
         elif signal.startswith("TQQQ"):
             desc = f"Entered TQQQ ({alloc.get(signal, signal)})"
         elif signal == "SQQQ":
             desc = "Entered SQQQ (short)"
         elif signal == "CASH" and prev_position == "SQQQ":
-            desc = "Sold all SQQQ \u2192 Cash"
+            desc = "Sold all SQQQ → Cash"
         elif signal == "CASH":
-            desc = "Sold all TQQQ \u2192 Cash"
+            desc = "Sold all TQQQ → Cash"
         else:
-            desc = f"{prev_position} \u2192 {signal}"
+            desc = f"{prev_position} → {signal}"
         header = f"**Action:** {desc}\n**Reason:** {signal_data['reason']}"
     else:
         pos_labels = {
@@ -681,24 +780,24 @@ def _build_notification_body(signal_data: dict, portfolio: dict,
                   f"**Signal:** {signal_data['reason']}")
 
     # ── Market section ────────────────────────
-    sma50_flag  = "\u2705 Above" if signal_data["above_50"]  else "\u274c Below"
-    sma250_flag = "\u2705 Above" if signal_data["above_250"] else "\u274c Below"
+    sma50_flag  = "✅ Above" if signal_data["above_50"]  else "❌ Below"
+    sma250_flag = "✅ Above" if signal_data["above_250"] else "❌ Below"
     if rsi_val >= 75:
-        rsi_flag = "\u26a0\ufe0f Overbought"
+        rsi_flag = "⚠️ Overbought"
     elif rsi_val <= 30:
-        rsi_flag = "\u26a0\ufe0f Oversold"
+        rsi_flag = "⚠️ Oversold"
     else:
-        rsi_flag = "\u2705 Normal"
+        rsi_flag = "✅ Normal"
 
     market = (
-        f"\u2501\u2501\u2501\u2501\u2501\u2501 \U0001f4ca MARKET \u2501\u2501\u2501\u2501\u2501\u2501\n"
+        f"━━━━━━ \U0001f4ca MARKET ━━━━━━\n"
         f"NDX         {signal_data['price']:,.1f}\n"
         f"SMA 50      {signal_data['sma50']:,.1f}  {sma50_flag}\n"
         f"SMA 250     {signal_data['sma250']:,.1f}  {sma250_flag}\n"
         f"RSI(14)     {rsi_val:.1f}  {rsi_flag}"
     )
     if signal_data.get("bearish_divergence"):
-        market += "\n\u26a0\ufe0f Bearish RSI divergence detected"
+        market += "\n⚠️ Bearish RSI divergence detected"
 
     # ── Portfolio section ─────────────────────
     invested = portfolio["tqqq_shares"] * tqqq_price + portfolio["sqqq_shares"] * sqqq_price
@@ -711,10 +810,10 @@ def _build_notification_body(signal_data: dict, portfolio: dict,
     pnl_sign = "+" if pnl >= 0 else ""
 
     portfolio_section = (
-        f"\u2501\u2501\u2501\u2501\u2501\u2501 \U0001f4b0 PORTFOLIO \u2501\u2501\u2501\u2501\u2501\u2501\n"
+        f"━━━━━━ \U0001f4b0 PORTFOLIO ━━━━━━\n"
         f"Total       ${total:,.2f}\n"
-        f"\u251c Invested  ${invested:,.2f}  ({inv_pct:.1f}%)\n"
-        f"\u2514 Cash      ${cash:,.2f}  ({cash_pct:.1f}%)"
+        f"├ Invested  ${invested:,.2f}  ({inv_pct:.1f}%)\n"
+        f"└ Cash      ${cash:,.2f}  ({cash_pct:.1f}%)"
     )
     if portfolio["tqqq_shares"] > 0:
         portfolio_section += f"\nTQQQ        {portfolio['tqqq_shares']:,.2f} shares @ ${tqqq_price:.2f}"
@@ -730,7 +829,8 @@ def _build_notification_body(signal_data: dict, portfolio: dict,
 # ─────────────────────────────────────────────
 def run_strategy(model: str = "symmetric_atr", portfolio_file: str = None,
                  trade_log_file: str = None, daily_log_file: str = None,
-                 market_data: tuple = None, notify: bool = True) -> bool:
+                 market_data: MarketData = None, notify: bool = True,
+                 extra_daily_fields: dict = None) -> bool:
     """
     Run one daily evaluation for `model`.
     Returns True if a run executed, False if skipped (already ran today).
@@ -753,22 +853,24 @@ def run_strategy(model: str = "symmetric_atr", portfolio_file: str = None,
         return False
 
     try:
-        ndx_df, tqqq_df, sqqq_df = market_data or fetch_market_data(cfg)
-        tqqq_price = float(tqqq_df["Close"].iloc[-1])
-        sqqq_price = float(sqqq_df["Close"].iloc[-1])
+        market = market_data or fetch_market_data(cfg)
+        tqqq_price = float(market.tqqq["Close"].iloc[-1])
+        sqqq_price = float(market.sqqq["Close"].iloc[-1])
         log.info(f"Current Prices — TQQQ: ${tqqq_price:.2f} | SQQQ: ${sqqq_price:.2f}")
 
-        portfolio = accrue_cash_interest(portfolio, cfg)
+        apply_corporate_actions(portfolio, {"tqqq": market.tqqq, "sqqq": market.sqqq},
+                                portfolio.get("last_run_date"), now.date())
+        portfolio = accrue_cash_interest(portfolio, market.rf_rate)
         signal_data = determine_signal(
-            ndx_df, cfg, current_position=portfolio["position"],
-            trim_active=portfolio.get("trim_active", False),
-            prev_rsi=portfolio.get("prev_rsi", 50.0), model=model)
+            market.ndx, cfg, current_position=portfolio["position"],
+            trim_active=portfolio.get("trim_active", False), model=model)
 
         portfolio["trim_active"] = signal_data["trim_active"]
         portfolio["prev_rsi"] = signal_data["rsi"]
         portfolio["last_tqqq_price"] = tqqq_price
         portfolio["last_sqqq_price"] = sqqq_price
         portfolio["last_atr"] = signal_data["atr"]
+        portfolio["last_rf_rate"] = market.rf_rate
         log.info(f"Signal: {signal_data['signal']} | RSI: {signal_data['rsi']:.1f} | "
                  f"NDX: {signal_data['price']:.1f} | SMA50: {signal_data['sma50']:.1f} | "
                  f"SMA250: {signal_data['sma250']:.1f}")
@@ -777,6 +879,7 @@ def run_strategy(model: str = "symmetric_atr", portfolio_file: str = None,
         if "benchmark_ndx_start" not in portfolio:
             portfolio["benchmark_ndx_start"] = signal_data["price"]
             portfolio["benchmark_tqqq_start"] = tqqq_price
+        portfolio.setdefault("live_since", today_str)
 
         prev_position = portfolio["position"]
         portfolio, trades = execute_trade(portfolio, signal_data, tqqq_price, sqqq_price, cfg)
@@ -785,10 +888,10 @@ def run_strategy(model: str = "symmetric_atr", portfolio_file: str = None,
         portfolio["last_signal"] = signal_data["reason"]
         portfolio["last_run_date"] = today_str
         portfolio["last_updated"] = now.isoformat()
+        # Logs first (idempotent per date), state last: state's last_run_date marks the day done
+        upsert_rows(trade_log_file, trades, today_str)
+        log_daily_summary(portfolio, signal_data, daily_log_file, tqqq_price, extra_daily_fields)
         save_portfolio(portfolio, portfolio_file)
-        for t in trades:
-            log_trade(t, trade_log_file)
-        log_daily_summary(portfolio, signal_data, daily_log_file, tqqq_price)
     except Exception as e:
         log.exception(f"Strategy run failed [{model}]: {e}")
         if notify:
@@ -815,4 +918,5 @@ def run_strategy(model: str = "symmetric_atr", portfolio_file: str = None,
 
 
 if __name__ == "__main__":
+    setup_logging()
     run_strategy()

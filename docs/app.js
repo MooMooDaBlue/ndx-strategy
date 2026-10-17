@@ -19,6 +19,7 @@ let currentTradeView = "cycles"; // 'cycles' or 'executions'
 let currentMatrixView = "all";   // 'all' or 'crisis'
 let overlayBothModels = true;
 let simulatedCapital = 10000;
+let riskFreeRate = 0.045; // replaced by the latest T-bill yield from the payload
 let cachedData = null;
 let chartInstance = null;
 let autoRefreshTimer = null;
@@ -602,6 +603,7 @@ async function fetchDashboardData(isBackground = false) {
     }
     const data = await res.json();
     cachedData = data;
+    applyPayloadMeta(data);
 
     // Dynamically ensure date pickers support latest session data (e.g. 2026-10-01)
     const allDaily = (data.daily_summary) || (data.models && data.models.symmetric_atr && data.models.symmetric_atr.daily_summary) || [];
@@ -612,12 +614,12 @@ async function fetchDashboardData(isBackground = false) {
         if (el) el.max = latestDate;
       });
       const elCustomEnd = document.getElementById("customEndDate");
-      if (elCustomEnd && (!elCustomEnd.value || elCustomEnd.value === "2026-03-30")) {
+      if (elCustomEnd && !elCustomEnd.value) {
         elCustomEnd.value = latestDate;
         customEndDate = latestDate;
       }
       const elSbEnd = document.getElementById("sbEndDate");
-      if (elSbEnd && (!elSbEnd.value || elSbEnd.value === "2026-03-30")) {
+      if (elSbEnd && !elSbEnd.value) {
         elSbEnd.value = latestDate;
       }
     }
@@ -702,10 +704,10 @@ async function fetchHeatmapQuotes(isPolling = false) {
     const isLocal = window.location.port === "5050" || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
     let endpoint = isLocal ? "/api/quotes" : "./quotes.json";
     let res = await fetch(endpoint + "?_t=" + Date.now());
-    if (!res.ok) {
-      endpoint = "./data.json";
-      res = await fetch(endpoint + "?_t=" + Date.now());
+    if (!res.ok && isLocal) {
+      res = await fetch("./quotes.json?_t=" + Date.now());
     }
+    if (!res.ok) throw new Error(`quotes HTTP ${res.status}`);
     const data = await res.json();
     const heatmapPayload = data.ndx_heatmap || (data.quotes ? data : null);
     if (heatmapPayload && heatmapPayload.quotes) {
@@ -829,6 +831,46 @@ function renderNdxHeatmap(heatmapData) {
 /* ==========================================================================
    UI RENDERING MASTER
    ========================================================================== */
+function fmtPx(v) {
+  return v > 0 ? `$${v.toFixed(2)}` : "—";
+}
+
+function fmtRate() {
+  return `${(riskFreeRate * 100).toFixed(2)}%`;
+}
+
+// Payload-driven labels: T-bill rate, model return badges, backtest/live provenance
+function applyPayloadMeta(data) {
+  const models = data.models || {};
+  const sym = models.symmetric_atr || {};
+  const rf = sym.portfolio && sym.portfolio.last_rf_rate;
+  if (rf !== undefined && rf !== null && rf >= 0) riskFreeRate = rf;
+  const rfEl = document.getElementById("qmRfLabel");
+  if (rfEl) rfEl.textContent = `Rf Benchmark: ${fmtRate()} (T-bill)`;
+
+  const meta = data.meta || {};
+  const years = meta.history_start
+    ? Math.round((Date.now() - new Date(meta.history_start)) / (365.25 * 864e5))
+    : null;
+  [["badgeReturnSymmetric", "symmetric_atr"], ["badgeReturnAgile", "original_agile"]].forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    const m = models[key];
+    if (el && m && m.total_return_pct !== undefined) {
+      const pct = m.total_return_pct;
+      el.textContent = `${pct >= 0 ? "+" : ""}${pct.toLocaleString("en-US", { maximumFractionDigits: 0 })}%${years ? ` (${years}Y)` : ""}`;
+    }
+  });
+
+  const prov = document.getElementById("dataProvenance");
+  if (prov) {
+    const parts = [];
+    if (meta.history_start && meta.backtest_end) parts.push(`Backtest ${meta.history_start} → ${meta.backtest_end}`);
+    parts.push(meta.live_since ? `live paper trading since ${meta.live_since}` : "live paper trading starts next session");
+    if (meta.slippage_bps !== undefined) parts.push(`${meta.slippage_bps} bps slippage per leg, MOC fills`);
+    prov.textContent = parts.join(" · ");
+  }
+}
+
 function renderUI(data) {
   // 0. Render Live Top 20 NDX Heatmap if present in payload
   if (data.ndx_heatmap) {
@@ -863,12 +905,11 @@ function renderUI(data) {
   const curRsi = (stats && stats.rsi !== undefined) ? stats.rsi : (latestDaily.rsi !== undefined ? latestDaily.rsi : 50.0);
 
   // Asset prices
-  let tqqqPx = (stats && stats.tqqq_price) || 0;
+  let tqqqPx = (stats && stats.tqqq_price) || p.last_tqqq_price || 0;
   if (!tqqqPx && p.tqqq_shares > 0) {
     tqqqPx = (p.total_value - p.cash) / p.tqqq_shares;
   }
-  if (!tqqqPx) tqqqPx = 81.01;
-  let sqqqPx = (stats && stats.sqqq_price) || 33.12;
+  let sqqqPx = (stats && stats.sqqq_price) || p.last_sqqq_price || 0;
 
   if (p.position === "TQQQ_100") {
     banner.className = "regime-hero-banner regime-bull";
@@ -913,9 +954,9 @@ function renderUI(data) {
   const heroHoldings = document.getElementById("heroHoldingsText");
   if (heroHoldings) {
     if (p.tqqq_shares > 0) {
-      heroHoldings.textContent = `${(p.tqqq_shares * scaleFactor).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TQQQ @ $${tqqqPx.toFixed(2)}`;
+      heroHoldings.textContent = `${(p.tqqq_shares * scaleFactor).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TQQQ @ ${fmtPx(tqqqPx)}`;
     } else if (p.sqqq_shares > 0) {
-      heroHoldings.textContent = `${(p.sqqq_shares * scaleFactor).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SQQQ @ $${sqqqPx.toFixed(2)}`;
+      heroHoldings.textContent = `${(p.sqqq_shares * scaleFactor).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SQQQ @ ${fmtPx(sqqqPx)}`;
     } else {
       heroHoldings.textContent = `100% Cash (${formatCurrency(p.cash * scaleFactor)})`;
     }
@@ -939,10 +980,10 @@ function renderUI(data) {
       assetBadgeEl.textContent = "TQQQ 3× BULL";
       assetBadgeEl.className = "ht-badge badge-bull";
     }
-    if (assetPriceEl) assetPriceEl.textContent = `$${tqqqPx.toFixed(2)}`;
+    if (assetPriceEl) assetPriceEl.textContent = fmtPx(tqqqPx);
     if (avgCostEl) avgCostEl.textContent = `$${p.tqqq_avg_cost.toFixed(2)}`;
     if (unrealizedPill) {
-      const uPct = p.tqqq_avg_cost > 0 ? ((tqqqPx / p.tqqq_avg_cost - 1) * 100) : 0;
+      const uPct = p.tqqq_avg_cost > 0 && tqqqPx > 0 ? ((tqqqPx / p.tqqq_avg_cost - 1) * 100) : 0;
       unrealizedPill.textContent = `${uPct >= 0 ? "+" : ""}${uPct.toFixed(2)}%`;
       unrealizedPill.className = `ht-pnl-pill ${uPct >= 0 ? "positive" : "negative"}`;
     }
@@ -951,7 +992,7 @@ function renderUI(data) {
       assetBadgeEl.textContent = "SQQQ 3× BEAR";
       assetBadgeEl.className = "ht-badge badge-bear";
     }
-    if (assetPriceEl) assetPriceEl.textContent = `$${sqqqPx.toFixed(2)}`;
+    if (assetPriceEl) assetPriceEl.textContent = fmtPx(sqqqPx);
     if (avgCostEl) avgCostEl.textContent = `$${p.sqqq_avg_cost.toFixed(2)}`;
     if (unrealizedPill) {
       const uPct = p.sqqq_avg_cost > 0 ? ((sqqqPx / p.sqqq_avg_cost - 1) * 100) : 0;
@@ -1109,7 +1150,7 @@ function renderUI(data) {
       gbActiveName.textContent = "GEAR 4 (100% CASH)";
       gbActiveName.className = "text-cyan";
     }
-    if (gbActiveSub) gbActiveSub.textContent = `Capital Defense: 100% Cash in 4.5% Treasury Yield (${formatCurrency(scaledTotal)}) • 0% Equity Risk`;
+    if (gbActiveSub) gbActiveSub.textContent = `Capital Defense: 100% Cash in ${fmtRate()} Treasury Yield (${formatCurrency(scaledTotal)}) • 0% Equity Risk`;
     if (gearCap100) gearCap100.textContent = "Standby (0%)";
     if (gearCap50) gearCap50.textContent = "Standby (0%)";
     if (gearCap30) gearCap30.textContent = "Standby (0%)";
@@ -1186,7 +1227,7 @@ function renderUI(data) {
   } else {
     holdingsTitle.textContent = "100% Cash";
     holdingsShares.textContent = formatCurrency(p.cash * scaleFactor);
-    holdingsCost.textContent = "4.5% Risk-Free Accrual";
+    holdingsCost.textContent = `${fmtRate()} T-Bill Accrual`;
   }
 
   // Market & Technicals Cards
@@ -1365,7 +1406,7 @@ function renderQuantMetrics(data) {
   const vals = daily.map(r => r.total_value);
   const returns = [];
   const negReturns = [];
-  const rfDaily = Math.pow(1 + 0.045, 1 / 252) - 1;
+  const rfDaily = Math.pow(1 + riskFreeRate, 1 / 252) - 1;
   const excessReturns = [];
 
   for (let i = 1; i < vals.length; i++) {
@@ -2975,7 +3016,7 @@ function runClientSideSimulation() {
   else if (rsiTrim === "75_50") { rsiThreshold = 75; trimFraction = 0.50; }
 
   // 5. Run Day-by-Day Simulation
-  const rfDaily = Math.pow(1 + 0.045, 1 / 252) - 1;
+  const rfDaily = Math.pow(1 + riskFreeRate, 1 / 252) - 1;
   let curCapital = capInput;
   let benchCapital = capInput;
   let totalInvested = capInput;
@@ -3542,7 +3583,7 @@ const QUANT_EXPLANATIONS = {
     title: "Sharpe Ratio",
     category: "WALL STREET RISK BENCHMARK",
     icon: "fa-solid fa-calculator text-cyan",
-    summary: "The universal scorecard of investing. Compares total return against risk-free Treasury yield (4.5%), divided by total volatility (both upswings and downswings).",
+    summary: "The universal scorecard of investing. Compares total return against risk-free 13-week T-bill yield, divided by total volatility (both upswings and downswings).",
     analogy: "Miles-per-gallon for financial risk: how much profit do you get per gallon of rollercoaster ride you have to stomach?",
     scores: [
       { text: "< 0.5", label: "Decaying / High Volatility", color: "rose" },
@@ -3717,7 +3758,7 @@ const QUANT_EXPLANATIONS = {
     analogy: "Like having a house made of stone when a hurricane blows down all the wooden houses on your block.",
     scores: [
       { text: "Unhedged Drop", label: "Full Crash Exposure", color: "rose" },
-      { text: "Cash / Treasuries", label: "4.5% Risk-Free Safety", color: "amber" },
+      { text: "Cash / Treasuries", label: "T-Bill Risk-Free Safety", color: "amber" },
       { text: "Crisis Alpha", label: "Protected Capital + Bottom Buy", color: "emerald" }
     ],
     strategyTakeaway: "By holding 100% Cash during down markets, you avoid the -80% drawdowns that wipe out buy-and-hold investors."
@@ -3730,7 +3771,7 @@ const QUANT_EXPLANATIONS = {
     analogy: "Like a precision 5-speed transmission in an endurance racecar: cruising at top speed on straightaways, downshifting into corners, braking before hazards, and reversing away from cliffs.",
     scores: [
       { text: "Gear 5 (SQQQ)", label: "Macro Bear Inverse (-3x Gain)", color: "rose" },
-      { text: "Gear 4 (Cash)", label: "Capital Defense @ 4.5% Yield", color: "cyan" },
+      { text: "Gear 4 (Cash)", label: "Capital Defense @ T-Bill Yield", color: "cyan" },
       { text: "Gear 1 (TQQQ)", label: "Full Bull Expansion (+3x Compounding)", color: "emerald" }
     ],
     strategyTakeaway: "Eliminates emotional second-guessing. Hover or tap each individual gear card below to see its exact mathematical triggers, purpose, and risk mitigation role."
@@ -3752,11 +3793,11 @@ const QUANT_EXPLANATIONS = {
     title: "Gear 2: Bearish Divergence Trim (50% TQQQ / 50% Cash)",
     category: "SYSTEMATIC GEAR 2",
     icon: "fa-solid fa-shield-halved text-amber",
-    summary: "Preemptive de-risking. Exactly half the portfolio is locked into Cash Yield (4.5%) when price prints higher swing highs while RSI momentum makes a lower peak.",
+    summary: "Preemptive de-risking. Exactly half the portfolio is locked into Cash (T-bill yield) when price prints higher swing highs while RSI momentum makes a lower peak.",
     analogy: "Downshifting from 5th to 4th gear when approaching sharp mountain curves. You keep driving fast, but with twice the grip and braking power.",
     scores: [
       { text: "50% TQQQ", label: "Ride Remaining Trend Continuation", color: "amber" },
-      { text: "50% Cash", label: "Locked in 4.5% Risk-Free Yield", color: "cyan" },
+      { text: "50% Cash", label: "Locked in T-Bill Risk-Free Yield", color: "cyan" },
       { text: "Trigger Rule", label: "Price High & Lower RSI Peak", color: "amber" }
     ],
     strategyTakeaway: "Divergence warns of momentum exhaustion before price drops. Sweeping 50% to cash cuts portfolio drawdown in half while staying in the game."
@@ -3775,7 +3816,7 @@ const QUANT_EXPLANATIONS = {
     strategyTakeaway: "3× leveraged ETFs suffer severe decay during reversals from extreme highs. Harvesting 70% to cash banks life-changing profits at euphoric tops."
   },
   gear_cash_100: {
-    title: "Gear 4: Capital Defense (100% Cash / 4.5% Yield)",
+    title: "Gear 4: Capital Defense (100% Cash / T-Bill Yield)",
     category: "SYSTEMATIC GEAR 4",
     icon: "fa-solid fa-vault text-cyan",
     summary: "Intermediate trend breakdown defense. 100% of capital is moved to Cash / Treasury yield whenever the Nasdaq-100 closes below its 50-day moving average.",
@@ -3783,7 +3824,7 @@ const QUANT_EXPLANATIONS = {
     scores: [
       { text: "NDX < SMA50", label: "Immediate Bull Exit Trigger", color: "rose" },
       { text: "100% Cash", label: "Zero Leveraged Drawdown Exposure", color: "emerald" },
-      { text: "4.5% Yield", label: "Risk-Free Daily Interest Compound", color: "cyan" }
+      { text: "T-Bill Yield", label: "Risk-Free Daily Interest Compound", color: "cyan" }
     ],
     strategyTakeaway: "This rule saved the strategy from the -82% crash of 2022. It preserves dry powder so we can aggressively rebuy when the bottom turns."
   },

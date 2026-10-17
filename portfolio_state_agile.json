@@ -1,0 +1,23 @@
+{
+  "position": "CASH",
+  "allocation_pct": 0.0,
+  "cash": 149998.0620409303,
+  "tqqq_shares": 0.0,
+  "sqqq_shares": 0.0,
+  "tqqq_avg_cost": 0.0,
+  "sqqq_avg_cost": 0.0,
+  "total_value": 149998.0620409303,
+  "starting_capital": 10000.0,
+  "last_signal": "Exit: NDX 29187.6 below SMA50 exit level (29868.0)",
+  "last_updated": "2026-10-16T16:00:00",
+  "last_run_date": "2026-10-16",
+  "trim_active": false,
+  "prev_rsi": 35.22594544711983,
+  "benchmark_ndx_start": 1775.739990234375,
+  "benchmark_tqqq_start": 0.20518521964550018,
+  "backtest_end": "2026-10-16",
+  "last_tqqq_price": 68.20999908447266,
+  "last_sqqq_price": 38.900001525878906,
+  "last_atr": 433.45748760677515,
+  "last_rf_rate": 0.04070000171661377
+}

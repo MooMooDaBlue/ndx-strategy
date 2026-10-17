@@ -3,10 +3,10 @@ name: Daily Strategy Execution & Pages Sync
 on:
   schedule:
     # GitHub cron is best-effort: triggers are often late by hours or dropped entirely.
-    # Several attempts are scheduled; the first one inside the 15:45-23:59 ET window does
-    # the work and later ones exit immediately (already ran today). Odd minutes avoid peak load.
-    - cron: '50 19 * * 1-5'   # 15:50 EDT / 14:50 EST (skips in winter)
-    - cron: '50 20 * * 1-5'   # 16:50 EDT / 15:50 EST
+    # Several attempts are scheduled; the first one inside the 16:00-23:59 ET window (after the
+    # official close) does the work and later ones exit immediately (already ran today).
+    - cron: '23 20 * * 1-5'   # 16:23 EDT / 15:23 EST (skips in winter)
+    - cron: '23 21 * * 1-5'   # 17:23 EDT / 16:23 EST
     - cron: '17 22 * * 1-5'   # 18:17 EDT / 17:17 EST (retry)
     - cron: '17 0 * * 2-6'    # 20:17 EDT / 19:17 EST (retry, UTC is next day)
     - cron: '17 2 * * 2-6'    # 22:17 EDT / 21:17 EST (last retry)
@@ -19,8 +19,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: "strategy-execution"
@@ -32,8 +30,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -46,7 +42,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pytest
 
-      - name: Run Unit Tests
+      - name: Run Unit Tests (offline)
         run: |
           python -m pytest -q tests
 
@@ -67,7 +63,11 @@ jobs:
             exit 0
           fi
           git commit -m "Auto: Daily Strategy Execution [skip ci]"
-          git pull --rebase origin main
-          git push origin main
-
-
+          # Someone may push while the job runs; the bot's files win for bot-owned paths.
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            echo "Push rejected (attempt $attempt); rebasing onto origin/main"
+            git fetch origin main
+            git rebase -X theirs origin/main || { git rebase --abort; exit 1; }
+          done
+          exit 1

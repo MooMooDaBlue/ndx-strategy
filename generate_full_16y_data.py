@@ -1,13 +1,14 @@
 """
 Regenerate both models from TQQQ inception (2010-02-11, $10,000) using the SAME engine as the
-live strategy (trading_strategy.compute_indicators / decide_signal / execute_trade).
-Cash earns the historical 13-week T-bill yield (^IRX), not a flat rate.
+live strategy (trading_strategy.compute_indicators / decide_signal / execute_trade), including
+slippage. Cash earns the historical 13-week T-bill yield (^IRX), not a flat rate.
+Prices are total-return adjusted (auto_adjust), so dividends are reinvested implicitly.
+
+Every row is tagged source=backtest; live runs append source=live rows after `backtest_end`.
 Writes portfolio_state*.json, daily_summary*.csv, trade_log*.csv, docs/data.json, performance_chart.png.
 """
 import os
 import sys
-import json
-import logging
 import pandas as pd
 import yfinance as yf
 
@@ -18,7 +19,6 @@ import run_cloud_strategy as rcs
 
 START = "2010-02-11"
 CAP = ts.CONFIG["starting_capital"]
-ts.log.setLevel(logging.WARNING)  # keep per-trade logging out of strategy.log
 
 
 def _dl(ticker, start):
@@ -28,45 +28,34 @@ def _dl(ticker, start):
     return df.dropna(subset=["Close"])
 
 
-print("1. Downloading data...")
-ndx, tqqq, sqqq = _dl("^NDX", "2008-01-01"), _dl("TQQQ", START), _dl("SQQQ", START)
-try:
-    irx = _dl("^IRX", "2009-12-01")["Close"] / 100.0
-except Exception as e:
-    print(f"   ^IRX unavailable ({e}); using flat {ts.CONFIG['risk_free_annual_rate']:.2%}")
-    irx = None
+def load_history() -> pd.DataFrame:
+    ndx, tqqq, sqqq = _dl("^NDX", "2008-01-01"), _dl("TQQQ", START), _dl("SQQQ", START)
+    try:
+        irx = _dl(ts.CONFIG["risk_free_ticker"], "2009-12-01")["Close"] / 100.0
+    except Exception as e:
+        print(f"   ^IRX unavailable ({e}); using flat {ts.CONFIG['risk_free_annual_rate']:.2%}")
+        irx = None
 
-ind = ts.compute_indicators(ndx, ts.CONFIG)
-idx = ind.index.intersection(tqqq.index).intersection(sqqq.index)
-idx = idx[idx >= pd.Timestamp(START)]
-df = ind.loc[idx].copy()
-df["tqqq"] = tqqq.loc[idx, "Close"]
-df["sqqq"] = sqqq.loc[idx, "Close"]
-df["rf"] = irx.reindex(idx).ffill().fillna(0.0) if irx is not None else ts.CONFIG["risk_free_annual_rate"]
+    ind = ts.compute_indicators(ndx, ts.CONFIG)
+    idx = ind.index.intersection(tqqq.index).intersection(sqqq.index)
+    idx = idx[idx >= pd.Timestamp(START)]
+    df = ind.loc[idx].copy()
+    df["tqqq"] = tqqq.loc[idx, "Close"]
+    df["sqqq"] = sqqq.loc[idx, "Close"]
+    df["rf"] = irx.reindex(idx).ffill().fillna(0.0) if irx is not None else ts.CONFIG["risk_free_annual_rate"]
 
-# Drop a partial (in-session) bar for today if needed
-now = ts.now_et()
-if df.index[-1].date() == now.date() and now.hour < 17:
-    df = df.iloc[:-1]
-print(f"2. Simulating {len(df)} sessions {df.index[0].date()} -> {df.index[-1].date()}")
+    # Drop a partial (in-session) bar for today if needed
+    now = ts.now_et()
+    if df.index[-1].date() == now.date() and now.hour < 17:
+        df = df.iloc[:-1]
+    return df
 
 
-def simulate(model):
-    p = {
-        "position": "CASH",
-        "allocation_pct": 0.0,
-        "cash": CAP,
-        "tqqq_shares": 0.0,
-        "sqqq_shares": 0.0,
-        "tqqq_avg_cost": 0.0,
-        "sqqq_avg_cost": 0.0,
-        "total_value": CAP,
-        "starting_capital": CAP,
-        "trim_active": False,
-        "prev_rsi": 50.0
-    }
+def simulate(df: pd.DataFrame, model: str):
+    p = ts.new_portfolio(CAP)
     trades, daily, prev_d = [], [], None
     ndx0, tqqq0 = float(df["close"].iloc[0]), float(df["tqqq"].iloc[0])
+    p.update(benchmark_ndx_start=ndx0, benchmark_tqqq_start=tqqq0)
     for t, row in df.iterrows():
         d = t.date()
         if prev_d is not None and p["cash"] > 0:
@@ -81,72 +70,55 @@ def simulate(model):
             "signal": dec["signal"],
             "reason": dec["reason"],
             "date": d.isoformat(),
-            "timestamp": f"{d.isoformat()}T15:50:00",
+            "timestamp": f"{d.isoformat()}T16:00:00",
             "price": price,
             "sma50": float(row["sma50"]),
             "sma250": float(row["sma250"]),
             "rsi": rsi,
-            "atr": float(row["atr"]),
-            "in_buffer_zone_entry": dec.get("in_buffer_zone_entry", False),
-            "in_buffer_zone_exit": dec.get("in_buffer_zone_exit", False),
-            "bearish_div": bool(row["bearish_div"])
         }
         p, new = ts.execute_trade(p, sd, float(row["tqqq"]), float(row["sqqq"]), ts.CONFIG)
-        for tr in new:
-            for k in ("shares", "price", "value", "ndx_price", "sma50", "sma250", "rsi"):
-                tr[k] = round(float(tr[k]), 4 if k == "shares" else 2)
-            trades.append(tr)
+        trades.extend(new)
         p = ts.update_portfolio_value(p, float(row["tqqq"]), float(row["sqqq"]))
-        v = p["total_value"]
-        daily.append({
-            "date": d.isoformat(),
-            "position": p["position"],
-            "allocation_pct": ts.ALLOC_PCT[p["position"]],
-            "total_value": round(v, 2),
-            "cash": round(p["cash"], 2),
-            "tqqq_shares": round(p["tqqq_shares"], 4),
-            "sqqq_shares": round(p["sqqq_shares"], 4),
-            "ndx_price": round(price, 2),
-            "sma50": round(float(row["sma50"]), 2),
-            "sma250": round(float(row["sma250"]), 2),
-            "rsi": round(rsi, 2),
-            "signal": dec["signal"],
-            "reason": dec["reason"],
-            "pnl_dollar": round(v - CAP, 2),
-            "pnl_pct": round((v / CAP - 1) * 100, 2),
-            "ndx_buyhold_pnl_pct": round((price / ndx0 - 1) * 100, 2),
-            "tqqq_buyhold_pnl_pct": round((float(row["tqqq"]) / tqqq0 - 1) * 100, 2),
-        })
+        daily.append(ts.build_daily_record(p, sd, float(row["tqqq"]), source="backtest"))
     last = df.iloc[-1]
+    end = df.index[-1].date().isoformat()
     p.update({
-        "last_run_date": df.index[-1].date().isoformat(),
-        "last_updated": f"{df.index[-1].date().isoformat()}T15:50:00",
-        "benchmark_ndx_start": ndx0,
-        "benchmark_tqqq_start": tqqq0,
+        "last_signal": daily[-1]["reason"],
+        "last_run_date": end,
+        "last_updated": f"{end}T16:00:00",
+        "backtest_end": end,
         "last_tqqq_price": float(last["tqqq"]),
         "last_sqqq_price": float(last["sqqq"]),
-        "last_atr": float(last["atr"])
+        "last_atr": float(last["atr"]),
+        "last_rf_rate": float(last["rf"]),
     })
     return p, daily, trades
 
 
-p_sym, d_sym, t_sym = simulate("symmetric_atr")
-p_orig, d_orig, t_orig = simulate("original_agile")
-for name, p, t in (("Symmetric ATR", p_sym, t_sym), ("Original Agile", p_orig, t_orig)):
-    print(f"   {name}: ${p['total_value']:,.2f} ({(p['total_value']/CAP-1)*100:+,.2f}%) | {len(t)} trade legs")
+def main():
+    print("1. Downloading data...")
+    df = load_history()
+    print(f"2. Simulating {len(df)} sessions {df.index[0].date()} -> {df.index[-1].date()}")
+    p_sym, d_sym, t_sym = simulate(df, "symmetric_atr")
+    p_agile, d_agile, t_agile = simulate(df, "original_agile")
+    for name, p, t in (("Symmetric ATR", p_sym, t_sym), ("Original Agile", p_agile, t_agile)):
+        print(f"   {name}: ${p['total_value']:,.2f} ({(p['total_value']/CAP-1)*100:+,.2f}%) | {len(t)} trade legs")
 
-print("3. Writing files...")
-for fname, p in (("portfolio_state.json", p_sym), ("portfolio_state_original.json", p_orig)):
-    with open(os.path.join(BASE_DIR, fname), "w", encoding="utf-8") as f:
-        json.dump(p, f, indent=2)
-ds = pd.DataFrame(d_sym)
-ds["total_value_orig"] = [r["total_value"] for r in d_orig]
-ds["pos_orig"] = [r["position"] for r in d_orig]
-ds.to_csv(os.path.join(BASE_DIR, "daily_summary.csv"), index=False)
-pd.DataFrame(d_orig).to_csv(os.path.join(BASE_DIR, "daily_summary_original.csv"), index=False)
-pd.DataFrame(t_sym).to_csv(os.path.join(BASE_DIR, "trade_log.csv"), index=False)
-pd.DataFrame(t_orig).to_csv(os.path.join(BASE_DIR, "trade_log_original.csv"), index=False)
+    print("3. Writing files...")
+    ts.save_portfolio(p_sym, ts.CONFIG["portfolio_file"])
+    ts.save_portfolio(p_agile, rcs.AGILE_FILES["portfolio_file"])
+    ds = pd.DataFrame(d_sym)
+    ds["total_value_agile"] = [r["total_value"] for r in d_agile]
+    ds["pos_agile"] = [r["position"] for r in d_agile]
+    ds.to_csv(ts.CONFIG["daily_log_file"], index=False)
+    pd.DataFrame(d_agile).to_csv(rcs.AGILE_FILES["daily_log_file"], index=False)
+    pd.DataFrame(t_sym).to_csv(ts.CONFIG["trade_log_file"], index=False)
+    pd.DataFrame(t_agile).to_csv(rcs.AGILE_FILES["trade_log_file"], index=False)
 
-rcs.generate_chart()
-rcs.export_pages_data()
-print("Done.")
+    rcs.generate_chart()
+    rcs.export_pages_data()
+    print("Done.")
+
+
+if __name__ == "__main__":
+    main()
