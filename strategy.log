@@ -561,3 +561,35 @@
 2026-10-28 20:05:48,173 [INFO]   Daily summary logged: Value=$192,902.84 | P&L=+1829.03%
 2026-10-28 20:05:48,173 [INFO]   Benchmarks: NDX B&H=+1578.91% | TQQQ B&H=+35141.33%
 2026-10-28 20:05:48,173 [INFO] PORTFOLIO [symmetric_atr]: CASH | $192,902.84 | cash $192,902.84 | P&L +1829.03%
+2026-10-29 20:01:35,839 [INFO] Fetching data for ^NDX...
+2026-10-29 20:01:36,648 [INFO]   ^NDX: 501 bars fetched, latest close: 29402.51
+2026-10-29 20:01:36,648 [INFO] Fetching data for TQQQ...
+2026-10-29 20:01:36,933 [INFO]   TQQQ: 64 bars fetched, latest close: 72.36
+2026-10-29 20:01:37,090 [INFO]   [BACKFILL] Built today's TQQQ bar from 78 intraday bars (last 15:55 ET): close $69.22
+2026-10-29 20:01:37,091 [INFO] Fetching data for SQQQ...
+2026-10-29 20:01:37,368 [INFO]   SQQQ: 64 bars fetched, latest close: 36.28
+2026-10-29 20:01:37,620 [INFO]   [BACKFILL] Built today's SQQQ bar from 78 intraday bars (last 15:55 ET): close $37.84
+2026-10-29 20:01:37,948 [INFO] ============================================================
+2026-10-29 20:01:37,948 [INFO] NDX SMA + RSI Strategy — Daily Run [original_agile] — 2026-10-29 20:01:37 ET
+2026-10-29 20:01:37,948 [INFO] ============================================================
+2026-10-29 20:01:37,948 [INFO] Portfolio loaded: CASH | Value: $150,197.62
+2026-10-29 20:01:37,948 [INFO] Current Prices — TQQQ: $69.22 | SQQQ: $37.84
+2026-10-29 20:01:37,948 [INFO]   Cash interest accrued: $16.45 (1 days @ 4.00% annual)
+2026-10-29 20:01:37,953 [INFO] Signal: CASH | RSI: 44.4 | NDX: 29402.5 | SMA50: 29812.9 | SMA250: 27397.3
+2026-10-29 20:01:37,953 [INFO] Reason: Exit: NDX 29402.5 below SMA50 exit level (29812.9)
+2026-10-29 20:01:37,953 [INFO]   No change — already in CASH
+2026-10-29 20:01:38,010 [INFO]   Daily summary logged: Value=$150,214.07 | P&L=+1402.14%
+2026-10-29 20:01:38,010 [INFO]   Benchmarks: NDX B&H=+1555.79% | TQQQ B&H=+33637.81%
+2026-10-29 20:01:38,010 [INFO] PORTFOLIO [original_agile]: CASH | $150,214.07 | cash $150,214.07 | P&L +1402.14%
+2026-10-29 20:01:38,011 [INFO] ============================================================
+2026-10-29 20:01:38,011 [INFO] NDX SMA + RSI Strategy — Daily Run [symmetric_atr] — 2026-10-29 20:01:38 ET
+2026-10-29 20:01:38,011 [INFO] ============================================================
+2026-10-29 20:01:38,011 [INFO] Portfolio loaded: CASH | Value: $192,902.84
+2026-10-29 20:01:38,011 [INFO] Current Prices — TQQQ: $69.22 | SQQQ: $37.84
+2026-10-29 20:01:38,011 [INFO]   Cash interest accrued: $21.13 (1 days @ 4.00% annual)
+2026-10-29 20:01:38,015 [INFO] Signal: CASH | RSI: 44.4 | NDX: 29402.5 | SMA50: 29812.9 | SMA250: 27397.3
+2026-10-29 20:01:38,015 [INFO] Reason: Exit: NDX 29402.5 below SMA50 exit level (29351.7)
+2026-10-29 20:01:38,015 [INFO]   No change — already in CASH
+2026-10-29 20:01:38,071 [INFO]   Daily summary logged: Value=$192,923.97 | P&L=+1829.24%
+2026-10-29 20:01:38,071 [INFO]   Benchmarks: NDX B&H=+1555.79% | TQQQ B&H=+33637.81%
+2026-10-29 20:01:38,072 [INFO] PORTFOLIO [symmetric_atr]: CASH | $192,923.97 | cash $192,923.97 | P&L +1829.24%
