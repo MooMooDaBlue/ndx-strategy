@@ -1143,3 +1143,31 @@
 2026-11-24 22:37:26,273 [INFO]   Daily summary logged: Value=$220,252.82 | P&L=+2102.53%
 2026-11-24 22:37:26,274 [INFO]   Benchmarks: NDX B&H=+1376.24% | TQQQ B&H=+22411.37%
 2026-11-24 22:37:26,274 [INFO] PORTFOLIO [symmetric_atr]: SQQQ | $220,252.82 | cash $0.00 | P&L +2102.53%
+2026-11-25 21:57:09,328 [INFO] Fetching data for ^NDX...
+2026-11-25 21:57:09,747 [INFO]   ^NDX: 501 bars fetched, latest close: 26046.90
+2026-11-25 21:57:09,747 [INFO] Fetching data for TQQQ...
+2026-11-25 21:57:09,889 [INFO]   TQQQ: 65 bars fetched, latest close: 45.28
+2026-11-25 21:57:09,890 [INFO] Fetching data for SQQQ...
+2026-11-25 21:57:10,005 [INFO]   SQQQ: 65 bars fetched, latest close: 49.60
+2026-11-25 21:57:10,109 [INFO] ============================================================
+2026-11-25 21:57:10,109 [INFO] NDX SMA + RSI Strategy — Daily Run [original_agile] — 2026-11-25 21:57:10 ET
+2026-11-25 21:57:10,109 [INFO] ============================================================
+2026-11-25 21:57:10,109 [INFO] Portfolio loaded: SQQQ | Value: $171,492.80
+2026-11-25 21:57:10,109 [INFO] Current Prices — TQQQ: $45.28 | SQQQ: $49.60
+2026-11-25 21:57:10,116 [INFO] Signal: SQQQ | RSI: 38.4 | NDX: 26046.9 | SMA50: 29064.2 | SMA250: 27563.8
+2026-11-25 21:57:10,116 [INFO] Reason: Bear signal: below both SMAs, RSI 38.4 in [35-55]
+2026-11-25 21:57:10,116 [INFO]   No change — already in SQQQ
+2026-11-25 21:57:10,190 [INFO]   Daily summary logged: Value=$174,805.65 | P&L=+1648.06%
+2026-11-25 21:57:10,190 [INFO]   Benchmarks: NDX B&H=+1366.82% | TQQQ B&H=+21967.87%
+2026-11-25 21:57:10,190 [INFO] PORTFOLIO [original_agile]: SQQQ | $174,805.65 | cash $0.00 | P&L +1648.06%
+2026-11-25 21:57:10,190 [INFO] ============================================================
+2026-11-25 21:57:10,190 [INFO] NDX SMA + RSI Strategy — Daily Run [symmetric_atr] — 2026-11-25 21:57:10 ET
+2026-11-25 21:57:10,190 [INFO] ============================================================
+2026-11-25 21:57:10,191 [INFO] Portfolio loaded: SQQQ | Value: $220,252.82
+2026-11-25 21:57:10,191 [INFO] Current Prices — TQQQ: $45.28 | SQQQ: $49.60
+2026-11-25 21:57:10,198 [INFO] Signal: SQQQ | RSI: 38.4 | NDX: 26046.9 | SMA50: 29064.2 | SMA250: 27563.8
+2026-11-25 21:57:10,198 [INFO] Reason: Bear signal: below both SMAs, RSI 38.4 in [35-55]
+2026-11-25 21:57:10,198 [INFO]   No change — already in SQQQ
+2026-11-25 21:57:10,265 [INFO]   Daily summary logged: Value=$224,507.59 | P&L=+2145.08%
+2026-11-25 21:57:10,265 [INFO]   Benchmarks: NDX B&H=+1366.82% | TQQQ B&H=+21967.87%
+2026-11-25 21:57:10,265 [INFO] PORTFOLIO [symmetric_atr]: SQQQ | $224,507.59 | cash $0.00 | P&L +2145.08%
